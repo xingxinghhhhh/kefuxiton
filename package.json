@@ -1,0 +1,12 @@
+{
+  "name": "ai-customer-service-agent",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.0.0",
+  "type": "module",
+  "scripts": {
+    "verify": "node scripts/verify-project.mjs",
+    "verify:project": "node scripts/verify-project.mjs"
+  }
+}
+

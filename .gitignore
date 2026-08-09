@@ -1,0 +1,29 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Runtime artifacts
+logs/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# Local tooling
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
