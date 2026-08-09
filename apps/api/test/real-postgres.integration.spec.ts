@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
@@ -15,7 +16,7 @@ describeReal('real PostgreSQL integration', () => {
 
   async function createTestApp() {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    const testApp = moduleRef.createNestApplication();
+    const testApp = moduleRef.createNestApplication(new ExpressAdapter());
     testApp.setGlobalPrefix('api/v1');
     testApp.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
     testApp.useGlobalFilters(new HttpExceptionFilter());

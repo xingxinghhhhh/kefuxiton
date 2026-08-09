@@ -11,6 +11,7 @@
     "typecheck": "pnpm --filter @ai-agent/contracts build && pnpm --recursive --if-present typecheck",
     "test:unit": "pnpm --filter @ai-agent/api test:unit && pnpm --filter @ai-agent/web test:unit",
     "test:integration": "pnpm --filter @ai-agent/api test:integration",
+    "test:api-smoke": "node tests/smoke/api-production.mjs",
     "test:e2e": "pnpm --filter @ai-agent/web test:e2e",
     "test:eval": "node tests/evals/run-n1-eval.mjs",
     "db:migrate": "pnpm --filter @ai-agent/api db:migrate",

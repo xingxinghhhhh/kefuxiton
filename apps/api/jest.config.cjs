@@ -5,7 +5,7 @@ module.exports = {
   testMatch: ['**/*.spec.ts'],
   testPathIgnorePatterns: ['/real-postgres.integration.spec.ts'],
   moduleNameMapper: {
-    '^(.+)\\.js$': '$1',
+    '^((?:\\.{1,2}/).+)\\.js$': '$1',
     '^@ai-agent/contracts$': '<rootDir>/../../packages/contracts/src/index.ts',
   },
 };
