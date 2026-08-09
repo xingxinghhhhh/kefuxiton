@@ -1,4 +1,5 @@
 module.exports = {
   ...require('./jest.config.cjs'),
-  testMatch: ['**/*.integration.spec.ts'],
+  testMatch: ['**/real-postgres.integration.spec.ts'],
+  testPathIgnorePatterns: [],
 };

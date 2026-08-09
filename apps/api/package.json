@@ -9,6 +9,7 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "jest --runInBand --config jest.config.cjs",
+    "test:service-boundary": "jest --runInBand --config jest.config.cjs test/conversations.integration.spec.ts",
     "test:integration": "jest --runInBand --config jest.integration.config.cjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
