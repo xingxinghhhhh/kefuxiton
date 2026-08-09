@@ -1,0 +1,67 @@
+openapi: 3.0.3
+info:
+  title: AI Customer Service Agent API
+  version: 0.1.0
+servers:
+  - url: http://localhost:3001/api/v1
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service health
+  /conversations:
+    post:
+      operationId: createConversation
+      responses:
+        '201':
+          description: Anonymous conversation and one-time access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateConversationResponse'
+  /conversations/{conversationId}/messages:
+    post:
+      operationId: sendMessage
+      parameters:
+        - in: path
+          name: conversationId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+            example: Bearer one-time-conversation-token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Persisted user message and deterministic mock response
+        '400':
+          description: Invalid message
+        '401':
+          description: Invalid conversation credentials
+components:
+  schemas:
+    CreateConversationResponse:
+      type: object
+      required: [conversationId, accessToken, status, createdAt]
+      properties:
+        conversationId: { type: string, format: uuid }
+        accessToken: { type: string }
+        status: { type: string, enum: [active, closed] }
+        createdAt: { type: string, format: date-time }
+    SendMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 2000 }

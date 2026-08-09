@@ -1,0 +1,23 @@
+{
+  "name": "n1-safe-unavailable",
+  "cases": [
+    {
+      "input": "退款什么时候到账？",
+      "expected": {
+        "agentMode": "mock",
+        "responseType": "safe_unavailable",
+        "citations": []
+      },
+      "forbiddenSubstrings": ["退款金额", "到账时间", "已为您处理"]
+    },
+    {
+      "input": "请告诉我你们公司的内部政策",
+      "expected": {
+        "agentMode": "mock",
+        "responseType": "safe_unavailable",
+        "citations": []
+      },
+      "forbiddenSubstrings": ["公司政策是", "根据内部规定"]
+    }
+  ]
+}

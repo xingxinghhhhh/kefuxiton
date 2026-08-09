@@ -18,6 +18,14 @@ const requiredFiles = [
   'tsconfig.base.json',
   'eslint.config.mjs',
   'prettier.config.mjs',
+  '.env.example',
+  'infra/docker-compose.dev.yml',
+  'apps/api/package.json',
+  'apps/api/prisma/schema.prisma',
+  'apps/web/package.json',
+  'packages/contracts/package.json',
+  'packages/contracts/src/index.ts',
+  'tests/evals/n1-safe-unavailable.json',
 ];
 const roleFiles = [
   'project-manager.toml',
@@ -68,20 +76,6 @@ if (!/^max_concurrent_threads_per_session\s*=\s*4/m.test(config)) {
   failures.push('.codex/config.toml must cap concurrency at 4');
 }
 
-const forbiddenBootstrapPaths = [
-  'apps/api/src',
-  'apps/web/src',
-  'packages/contracts/src',
-  'tests/unit',
-  'tests/integration',
-  'tests/e2e',
-];
-for (const relativePath of forbiddenBootstrapPaths) {
-  if (fs.existsSync(path.join(root, relativePath))) {
-    failures.push(`N0 must not create business implementation path: ${relativePath}`);
-  }
-}
-
 if (failures.length > 0) {
   console.error('Project verification failed:');
   for (const failure of failures) console.error(`- ${failure}`);
@@ -89,4 +83,3 @@ if (failures.length > 0) {
 } else {
   console.log(`Project verification passed: ${requiredFiles.length} base files and ${roleFiles.length} role files checked.`);
 }
-

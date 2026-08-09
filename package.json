@@ -2,11 +2,19 @@
   "name": "ai-customer-service-agent",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "pnpm@11.16.0",
   "type": "module",
   "scripts": {
+    "build": "pnpm --filter @ai-agent/contracts build && pnpm --filter @ai-agent/api build && pnpm --filter @ai-agent/web build",
+    "dev": "pnpm --parallel --filter @ai-agent/api --filter @ai-agent/web dev",
+    "lint": "pnpm --recursive --if-present lint",
+    "typecheck": "pnpm --filter @ai-agent/contracts build && pnpm --recursive --if-present typecheck",
+    "test:unit": "pnpm --filter @ai-agent/api test:unit && pnpm --filter @ai-agent/web test:unit",
+    "test:integration": "pnpm --filter @ai-agent/api test:integration",
+    "test:e2e": "pnpm --filter @ai-agent/web test:e2e",
+    "test:eval": "node tests/evals/run-n1-eval.mjs",
+    "db:migrate": "pnpm --filter @ai-agent/api db:migrate",
     "verify": "node scripts/verify-project.mjs",
     "verify:project": "node scripts/verify-project.mjs"
   }
 }
-

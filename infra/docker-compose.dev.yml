@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ai_customer_service
+      POSTGRES_USER: ai_agent
+      POSTGRES_PASSWORD: ai_agent_dev_only
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_agent -d ai_customer_service"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - ai-agent-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  ai-agent-postgres-data:
