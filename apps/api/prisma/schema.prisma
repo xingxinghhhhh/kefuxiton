@@ -19,6 +19,7 @@ enum MessageRole {
 
 enum HandoffRequestStatus {
   requested
+  claimed
   closed
 }
 
@@ -47,6 +48,8 @@ model HandoffRequest {
   status         HandoffRequestStatus @default(requested)
   reasonCode     String              @db.VarChar(64)
   activeKey      String?             @unique @db.VarChar(64)
+  claimedBy      String?             @db.VarChar(255)
+  claimedAt      DateTime?
   requestedAt    DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   closedAt       DateTime?
@@ -61,6 +64,7 @@ model AuditEvent {
   conversationId   String?         @db.Uuid
   handoffRequestId String?         @db.Uuid
   actorType        String          @db.VarChar(32)
+  actorId          String?         @db.VarChar(255)
   action           String          @db.VarChar(64)
   outcome          String          @db.VarChar(32)
   metadata         Json?

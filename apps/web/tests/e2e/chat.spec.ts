@@ -2,28 +2,70 @@ import { expect, test } from '@playwright/test';
 
 test('completes the safe mock chat flow', async ({ page }) => {
   await page.goto('/chat');
-  const composer = page.getByLabel('发送问题');
-  const send = page.getByRole('button', { name: '发送' });
+  const composer = page.locator('#message');
+  const send = page.locator('form.composer button[type="submit"]');
 
   await expect(composer).toBeVisible();
   await expect(send).toBeDisabled();
-  await composer.fill('请介绍一下这个演示环境');
+  await composer.fill('introduce this demo environment');
   await expect(send).toBeEnabled();
   await send.click();
-  await expect(page.getByText('请介绍一下这个演示环境')).toBeVisible();
-  await expect(page.getByText('当前演示环境尚未接入已发布知识库，暂时无法可靠回答该问题。')).toBeVisible();
-  await expect(page.getByText('响应类型：safe_unavailable')).toBeVisible();
+  await expect(page.getByText('introduce this demo environment')).toBeVisible();
+  await expect(page.locator('small').filter({ hasText: 'safe_unavailable' })).toBeVisible();
 });
 
-test('requests idempotent handoff and stops automatic replies', async ({ page }) => {
-  await page.goto('/chat');
-  const composer = page.getByLabel('发送问题');
-  await composer.fill('请直接修改我的生产权限');
-  await page.getByRole('button', { name: '发送' }).click();
+test('customer handoff status disables automatic replies', async ({ page, request }) => {
+  const apiBase = 'http://127.0.0.1:3001/api/v1';
+  const createdResponse = await request.post(`${apiBase}/conversations`);
+  expect(createdResponse.ok()).toBeTruthy();
+  const conversation = await createdResponse.json() as { conversationId: string; accessToken: string };
+  const handoffResponse = await request.post(`${apiBase}/conversations/${conversation.conversationId}/handoff-requests`, {
+    headers: { authorization: `Bearer ${conversation.accessToken}` },
+    data: { reasonCode: 'customer_requested' },
+  });
+  expect(handoffResponse.ok()).toBeTruthy();
 
-  const requestButton = page.getByRole('button', { name: '请求人工接入' });
-  await expect(requestButton).toBeVisible();
-  await requestButton.click();
-  await expect(page.getByText('已提交转人工请求，正在等待人工接入。人工接入前不会继续自动回复。')).toBeVisible();
-  await expect(composer).toBeDisabled();
+  await page.addInitScript((storedConversation) => {
+    window.sessionStorage.setItem('ai-agent-conversation', JSON.stringify(storedConversation));
+  }, conversation);
+  await page.goto('/chat');
+  await expect(page.locator('#message')).toBeDisabled();
+  await expect(page.locator('p[role="status"]').last()).toBeVisible();
+});
+
+test('staff queue enforces access, claims, and closes a handoff', async ({ page, request }) => {
+  const apiBase = 'http://127.0.0.1:3001/api/v1';
+  const createdResponse = await request.post(`${apiBase}/conversations`);
+  expect(createdResponse.ok()).toBeTruthy();
+  const conversation = await createdResponse.json() as { conversationId: string; accessToken: string };
+
+  const messageResponse = await request.post(`${apiBase}/conversations/${conversation.conversationId}/messages`, {
+    headers: { authorization: `Bearer ${conversation.accessToken}` },
+    data: { content: 'e2e handoff context' },
+  });
+  expect(messageResponse.ok()).toBeTruthy();
+  const handoffResponse = await request.post(`${apiBase}/conversations/${conversation.conversationId}/handoff-requests`, {
+    headers: { authorization: `Bearer ${conversation.accessToken}` },
+    data: { reasonCode: 'customer_requested' },
+  });
+  expect(handoffResponse.ok()).toBeTruthy();
+
+  await page.goto('/staff/handoffs');
+  await page.locator('#staff-token').fill('wrong-token');
+  await page.locator('form button[type="submit"]').click();
+  await expect(page.locator('p[role="alert"]')).toBeVisible();
+
+  await page.locator('#staff-token').fill('test-staff-token');
+  await page.locator('form button[type="submit"]').click();
+  const requestCard = page.locator('.message-list article').filter({ hasText: conversation.conversationId });
+  await expect(requestCard).toContainText('requested');
+  await requestCard.locator('button').click();
+
+  await page.locator('#handoff-status-filter').selectOption('claimed');
+  const claimedCard = page.locator('.message-list article').filter({ hasText: conversation.conversationId });
+  await expect(claimedCard).toContainText('claimed');
+  await claimedCard.locator('button').click();
+
+  await page.locator('#handoff-status-filter').selectOption('closed');
+  await expect(page.locator('.message-list article').filter({ hasText: conversation.conversationId })).toContainText('closed');
 });

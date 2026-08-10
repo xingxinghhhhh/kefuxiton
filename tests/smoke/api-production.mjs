@@ -15,6 +15,7 @@ const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const childProcesses = new Set();
 let lastApiOutput = [];
 const smokeSourceId = 'TEST-ONLY-PRODUCTION-SMOKE-KNOWLEDGE';
+const staffToken = 'test-only-staff-token';
 const smokeMarkdown = `---
 sourceId: ${smokeSourceId}
 sourceRef: test://production-smoke
@@ -96,6 +97,9 @@ function startApi() {
       DATABASE_URL: databaseUrl,
       PORT: new URL(baseUrl).port,
       WEB_ORIGIN: 'http://127.0.0.1:3000',
+      STAFF_AUTH_MODE: 'test',
+      AI_AGENT_TEST_STAFF_TOKEN: staffToken,
+      AI_AGENT_TEST_STAFF_ID: 'test-operator',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: process.platform === 'win32',
@@ -191,10 +195,59 @@ try {
     headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
     body: JSON.stringify({ content: '请继续回答我的问题' }),
   });
-  assert(suppressed.body.responseType === 'handoff_requested', 'handoff must suppress automatic replies');
+  assert(suppressed.body.responseType === 'handoff_pending', 'handoff must suppress automatic replies');
   assert(suppressed.body.agentMode === 'handoff', 'suppressed reply must identify handoff mode');
   assert(suppressed.body.handoffStatus === 'requested', 'suppressed reply must expose handoff status');
+  assert(suppressed.body.messages?.length === 1, 'suppressed reply must not create an assistant message');
   assert(suppressed.body.citations?.length === 0, 'handoff acknowledgement must not return citations');
+
+  const staffDenied = await requestJson('/api/v1/staff/handoff-requests?status=requested', {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  assert(staffDenied.response.status === 401, 'customer bearer token must not access staff API');
+
+  const staffQueue = await requestJson('/api/v1/staff/handoff-requests?status=requested', {
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+  assert(staffQueue.response.status === 200, `staff queue returned HTTP ${staffQueue.response.status}`);
+  const queuedRequest = staffQueue.body.items?.find((item) => item.requestId === handoff.body.requestId);
+  assert(queuedRequest?.status === 'requested', 'staff queue must expose the requested handoff');
+  assert(queuedRequest.recentMessages?.length > 0, 'staff queue must expose recent messages');
+
+  const claim = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/claim`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+  assert(claim.body.status === 'claimed' && claim.body.idempotent === false, 'staff claim must transition once');
+  const claimReplay = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/claim`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+  assert(claimReplay.body.status === 'claimed' && claimReplay.body.idempotent === true, 'staff claim must be idempotent');
+
+  const claimedStatus = await requestJson(`/api/v1/conversations/${conversationId}/handoff-requests`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  assert(claimedStatus.body.status === 'claimed', 'customer must see claimed status');
+
+  const close = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/close`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+  assert(close.body.status === 'closed' && close.body.idempotent === false, 'staff close must transition once');
+  const closeReplay = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/close`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+  assert(closeReplay.body.status === 'closed' && closeReplay.body.idempotent === true, 'staff close must be idempotent');
+
+  const closedMessage = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ content: '关闭后继续发送的消息' }),
+  });
+  assert(closedMessage.body.responseType === 'handoff_pending', 'closed handoff must keep AI suppressed');
+  assert(closedMessage.body.messages?.length === 1, 'closed handoff must not create an assistant message');
 
   const denied = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
     method: 'POST',

@@ -1,8 +1,9 @@
 export type ConversationStatus = 'active' | 'closed';
 export type MessageRole = 'user' | 'agent';
 export type AgentMode = 'mock' | 'deterministic_knowledge' | 'handoff';
-export type ResponseType = 'safe_unavailable' | 'knowledge_answer' | 'handoff_recommended' | 'handoff_requested' | 'mock_fallback';
-export type HandoffRequestStatus = 'requested' | 'closed';
+export type ResponseType = 'safe_unavailable' | 'knowledge_answer' | 'handoff_recommended' | 'handoff_requested' | 'handoff_pending' | 'mock_fallback';
+export type HandoffRequestStatus = 'requested' | 'claimed' | 'closed';
+export type StaffPermission = 'handoff:read' | 'handoff:claim' | 'handoff:close' | 'conversation:read';
 
 export interface Citation {
   id: string;
@@ -45,6 +46,8 @@ export interface SendMessageResponse {
   citations: Citation[];
   handoffRecommended: boolean;
   handoffStatus: HandoffRequestStatus | null;
+  handoffRequestId: string | null;
+  assistantMessageId: string | null;
 }
 
 export interface HandoffRequestResponse {
@@ -55,6 +58,38 @@ export interface HandoffRequestResponse {
   requestedAt: string;
   updatedAt: string;
   idempotent: boolean;
+  claimedAt?: string;
+  closedAt?: string;
+}
+
+export interface HandoffActionResponse {
+  requestId: string;
+  status: HandoffRequestStatus;
+  idempotent: boolean;
+}
+
+export interface StaffHandoffMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface StaffHandoffRequest {
+  requestId: string;
+  conversationId: string;
+  status: HandoffRequestStatus;
+  reasonCode: string;
+  requestedAt: string;
+  updatedAt: string;
+  claimedBy: string | null;
+  claimedAt: string | null;
+  closedAt: string | null;
+  recentMessages: StaffHandoffMessage[];
+}
+
+export interface StaffHandoffListResponse {
+  items: StaffHandoffRequest[];
 }
 
 export interface ApiErrorResponse {

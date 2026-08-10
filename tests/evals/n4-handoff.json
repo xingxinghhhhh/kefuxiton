@@ -1,0 +1,7 @@
+[
+  { "id": "customer-request", "category": "customer_request", "expected": "requested" },
+  { "id": "operator-claim", "category": "operator_claim", "expected": "claimed" },
+  { "id": "claim-suppresses-ai", "category": "ai_suppression", "expected": "handoff_pending" },
+  { "id": "operator-close", "category": "operator_close", "expected": "closed" },
+  { "id": "cross-session-isolation", "category": "security", "expected": "denied" }
+]

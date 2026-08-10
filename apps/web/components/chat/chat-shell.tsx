@@ -35,7 +35,7 @@ export function ChatShell() {
     try {
       const result = await getHandoffStatus(storedConversation);
       setHandoffStatus(result?.status ?? null);
-      setHandoffRecommended(result?.status === 'requested');
+      setHandoffRecommended(result?.status !== undefined && result?.status !== null && result.status !== 'closed');
     } catch {
       setHandoffError('暂时无法读取转人工状态，请稍后刷新。');
     } finally {
@@ -129,7 +129,7 @@ export function ChatShell() {
           ))}
         </div>
 
-        {handoffRecommended && handoffStatus !== 'requested' && (
+        {handoffRecommended && handoffStatus === null && (
           <div className="handoff-panel" role="status">
             <p>建议转人工服务台处理。</p>
             <button type="button" onClick={() => void onRequestHandoff()}>
@@ -137,8 +137,13 @@ export function ChatShell() {
             </button>
           </div>
         )}
-        {handoffStatus === 'requested' && (
-          <p role="status">已提交转人工请求，正在等待人工接入。人工接入前不会继续自动回复。</p>
+        {handoffStatus && (
+          <p role="status">
+            {handoffStatus === 'requested' && '已提交转人工请求，正在等待人工接入。'}
+            {handoffStatus === 'claimed' && '人工已接管当前请求，正在等待处理。'}
+            {handoffStatus === 'closed' && '人工接管请求已关闭，当前不会继续自动回复。'}
+            {' '}人工接管期间不会继续自动回复。
+          </p>
         )}
         {handoffError && <p className="error-message" role="alert">{handoffError}</p>}
         {error && <p className="error-message" role="alert">{error}</p>}
@@ -151,7 +156,7 @@ export function ChatShell() {
             onChange={(event) => setContent(event.target.value)}
             maxLength={2000}
             placeholder="例如：请介绍一下这个演示环境"
-            disabled={status !== 'ready' || handoffStatus === 'requested'}
+            disabled={status !== 'ready' || handoffStatus !== null}
             rows={3}
           />
           <div className="composer-footer">

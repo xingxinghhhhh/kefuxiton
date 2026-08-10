@@ -103,6 +103,96 @@ paths:
           description: Current handoff request or null
         '401':
           description: Invalid conversation credentials
+  /staff/handoff-requests:
+    get:
+      operationId: listStaffHandoffRequests
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [requested, claimed, closed]
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+            example: Staff test-only-token
+      responses:
+        '200':
+          description: Authorized staff handoff queue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffHandoffListResponse'
+        '401':
+          description: Missing or invalid staff identity
+        '403':
+          description: Insufficient staff permission
+  /staff/handoff-requests/{requestId}:
+    get:
+      operationId: getStaffHandoffRequest
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Authorized staff handoff request with recent messages
+        '401':
+          description: Missing or invalid staff identity
+        '403':
+          description: Insufficient staff permission
+        '404':
+          description: Handoff request not found
+  /staff/handoff-requests/{requestId}/claim:
+    post:
+      operationId: claimStaffHandoffRequest
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Claimed handoff request, idempotently
+        '401':
+          description: Missing or invalid staff identity
+        '403':
+          description: Insufficient staff permission
+        '409':
+          description: Handoff state conflict
+  /staff/handoff-requests/{requestId}/close:
+    post:
+      operationId: closeStaffHandoffRequest
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Closed handoff request, idempotently
+        '401':
+          description: Missing or invalid staff identity
+        '403':
+          description: Insufficient staff permission
+        '409':
+          description: Handoff state conflict
 components:
   schemas:
     CreateConversationResponse:
@@ -135,18 +225,51 @@ components:
         conversationId: { type: string, format: uuid }
         messages: { type: array, items: { type: object } }
         agentMode: { type: string, enum: [mock, deterministic_knowledge, handoff] }
-        responseType: { type: string, enum: [safe_unavailable, knowledge_answer, handoff_recommended, handoff_requested, mock_fallback] }
+        responseType: { type: string, enum: [safe_unavailable, knowledge_answer, handoff_recommended, handoff_requested, handoff_pending, mock_fallback] }
         citations: { type: array, items: { $ref: '#/components/schemas/Citation' } }
         handoffRecommended: { type: boolean }
-        handoffStatus: { type: string, nullable: true, enum: [requested, closed] }
+        handoffStatus: { type: string, nullable: true, enum: [requested, claimed, closed] }
+        handoffRequestId: { type: string, format: uuid, nullable: true }
+        assistantMessageId: { type: string, format: uuid, nullable: true }
     HandoffRequestResponse:
       type: object
       required: [conversationId, requestId, status, reasonCode, requestedAt, updatedAt, idempotent]
       properties:
         conversationId: { type: string, format: uuid }
         requestId: { type: string, format: uuid }
-        status: { type: string, enum: [requested, closed] }
+        status: { type: string, enum: [requested, claimed, closed] }
         reasonCode: { type: string, enum: [customer_requested] }
         requestedAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         idempotent: { type: boolean }
+        claimedAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time }
+    HandoffActionResponse:
+      type: object
+      required: [requestId, status, idempotent]
+      properties:
+        requestId: { type: string, format: uuid }
+        status: { type: string, enum: [requested, claimed, closed] }
+        idempotent: { type: boolean }
+    StaffHandoffListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffHandoffRequest'
+    StaffHandoffRequest:
+      type: object
+      required: [requestId, conversationId, status, reasonCode, requestedAt, updatedAt, claimedBy, claimedAt, closedAt, recentMessages]
+      properties:
+        requestId: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        status: { type: string, enum: [requested, claimed, closed] }
+        reasonCode: { type: string }
+        requestedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        claimedBy: { type: string, nullable: true }
+        claimedAt: { type: string, format: date-time, nullable: true }
+        closedAt: { type: string, format: date-time, nullable: true }
+        recentMessages: { type: array, items: { type: object } }

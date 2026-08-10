@@ -2,6 +2,9 @@ import type {
   ApiErrorResponse,
   CreateConversationResponse,
   HandoffRequestResponse,
+  HandoffActionResponse,
+  HandoffRequestStatus,
+  StaffHandoffListResponse,
   SendMessageRequest,
   SendMessageResponse,
 } from '@ai-agent/contracts';
@@ -44,5 +47,26 @@ export function requestHandoff(conversation: CreateConversationResponse) {
 export function getHandoffStatus(conversation: CreateConversationResponse) {
   return request<HandoffRequestResponse | null>(`/conversations/${conversation.conversationId}/handoff-requests`, {
     headers: { authorization: `Bearer ${conversation.accessToken}` },
+  });
+}
+
+export function listStaffHandoffs(staffToken: string, status?: HandoffRequestStatus) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return request<StaffHandoffListResponse>(`/staff/handoff-requests${query}`, {
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+}
+
+export function claimStaffHandoff(staffToken: string, requestId: string) {
+  return request<HandoffActionResponse>(`/staff/handoff-requests/${requestId}/claim`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+}
+
+export function closeStaffHandoff(staffToken: string, requestId: string) {
+  return request<HandoffActionResponse>(`/staff/handoff-requests/${requestId}/close`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}` },
   });
 }

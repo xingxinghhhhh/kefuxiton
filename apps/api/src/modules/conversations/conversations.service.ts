@@ -7,8 +7,6 @@ import { createConversationToken, hashConversationToken } from './conversation-t
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { HandoffService } from '../handoff/handoff.service.js';
 
-const HANDOFF_WAIT_MESSAGE = '已收到转人工请求，当前会话进入等待人工接入状态。人工接入前不会继续自动回复。';
-
 @Injectable()
 export class ConversationsService {
   constructor(
@@ -37,32 +35,24 @@ export class ConversationsService {
     });
     if (!authorizedConversation) throw new UnauthorizedException('会话凭证无效。');
 
-    const activeHandoff = await this.handoff.getActiveRequest(conversationId);
-    if (activeHandoff) {
+    const handoffRequest = await this.handoff.getConversationRequest(conversationId);
+    if (handoffRequest) {
       return this.prisma.$transaction(async (tx) => {
         const conversation = await tx.conversation.findFirst({
           where: { id: conversationId, accessTokenHash: hashConversationToken(accessToken), status: 'active' },
         });
         if (!conversation) throw new UnauthorizedException('会话凭证无效。');
         const userMessage = await tx.message.create({ data: { conversationId, role: 'user', content } });
-        const agentMessage = await tx.message.create({
-          data: {
-            conversationId,
-            role: 'agent',
-            content: HANDOFF_WAIT_MESSAGE,
-            responseType: 'handoff_requested',
-            agentMode: 'handoff',
-            citations: [],
-          },
-        });
         return {
           conversationId,
-          messages: [this.toMessageView(userMessage), this.toMessageView(agentMessage)],
+          messages: [this.toMessageView(userMessage)],
           agentMode: 'handoff' as const,
-          responseType: 'handoff_requested' as const,
+          responseType: 'handoff_pending' as const,
           citations: [],
-          handoffRecommended: true,
-          handoffStatus: 'requested' as const,
+          handoffRecommended: handoffRequest.status !== 'closed',
+          handoffStatus: handoffRequest.status,
+          handoffRequestId: handoffRequest.id,
+          assistantMessageId: null,
         };
       });
     }
@@ -95,6 +85,8 @@ export class ConversationsService {
         citations: agentResult.citations,
         handoffRecommended: agentResult.handoffRecommended,
         handoffStatus: null,
+        handoffRequestId: null,
+        assistantMessageId: agentMessage.id,
       };
     });
   }
