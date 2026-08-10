@@ -1,10 +1,14 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { HandoffRequestStatus, Prisma } from '@prisma/client';
 import type {
   HandoffActionResponse,
   HandoffRequestResponse,
   HandoffRequestStatus as ContractHandoffRequestStatus,
   InternalTag,
+  StaffAuditTimelineResponse,
+  TimelineAction,
+  TimelineResult,
+  TimelineSubjectType,
   StaffInternalContextResponse,
   MessageSenderType,
   ResponseType,
@@ -239,6 +243,28 @@ export class HandoffService {
     };
   }
 
+  async getAuditTimeline(requestId: string, limit: number, cursor?: string): Promise<StaffAuditTimelineResponse> {
+    const request = await this.prisma.handoffRequest.findUnique({ where: { id: requestId }, select: { id: true, conversationId: true } });
+    if (!request) throw new NotFoundException('handoff request not found');
+    const after = cursor ? this.decodeTimelineCursor(cursor, requestId) : undefined;
+    const events = await this.prisma.auditEvent.findMany({
+      where: { handoffRequestId: request.id, conversationId: request.conversationId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
+      ...(after ? { where: { handoffRequestId: request.id, conversationId: request.conversationId, OR: [{ createdAt: { gt: after.occurredAt } }, { createdAt: after.occurredAt, id: { gt: after.eventId } }] } } : {}),
+    });
+    const hasMore = events.length > limit;
+    const page = hasMore ? events.slice(0, limit) : events;
+    const items = page.map((event) => this.toTimelineItem(event, request.id));
+    const last = page.at(-1);
+    return {
+      requestId: request.id,
+      conversationId: request.conversationId,
+      items,
+      nextCursor: hasMore && last ? this.encodeTimelineCursor(request.id, last.createdAt, last.id) : null,
+    };
+  }
+
   async addInternalNote(requestId: string, principal: StaffPrincipal, content: string, idempotencyKey: string, correlationId: string) {
     const request = await this.requireClaimedOwner(requestId, principal);
     try {
@@ -332,6 +358,97 @@ export class HandoffService {
 
   private toInternalNote(note: { id: string; content: string; operatorId: string; createdAt: Date }) {
     return { id: note.id, content: note.content, operatorId: note.operatorId, createdAt: note.createdAt.toISOString() };
+  }
+
+  private toTimelineItem(event: { id: string; createdAt: Date; actorType: string; actorId: string | null; action: string; outcome: string; metadata: unknown }, requestId: string) {
+    const action = this.normalizeTimelineAction(event.action);
+    const metadata = this.readTimelineMetadata(event.metadata);
+    return {
+      eventId: event.id,
+      occurredAt: event.createdAt.toISOString(),
+      actorType: event.actorType === 'staff' ? 'operator' : this.normalizeActorType(event.actorType),
+      actorRef: this.maskActorId(event.actorId),
+      action,
+      result: this.normalizeTimelineResult(event.outcome, event.action),
+      subjectType: this.subjectTypeFor(action),
+      subjectRef: this.subjectRefFor(action, metadata, requestId),
+      tag: this.tagFor(action, metadata),
+    };
+  }
+
+  private normalizeActorType(actorType: string): 'customer' | 'operator' | 'system' {
+    if (actorType === 'customer' || actorType === 'system') return actorType;
+    throw new InternalServerErrorException('unsupported audit actor type');
+  }
+
+  private normalizeTimelineAction(action: string): TimelineAction {
+    if (action === 'conversation_tag_add_replayed') return 'conversation_tag_added';
+    if (action === 'conversation_tag_remove_replayed') return 'conversation_tag_removed';
+    const allowed: TimelineAction[] = [
+      'handoff_requested', 'handoff_request_replayed', 'handoff_claimed', 'handoff_claim_replayed',
+      'handoff_closed', 'handoff_close_replayed', 'operator_reply_created', 'operator_reply_replayed',
+      'internal_note_created', 'internal_note_replayed', 'conversation_tag_added', 'conversation_tag_removed',
+    ];
+    if (!allowed.includes(action as TimelineAction)) throw new InternalServerErrorException('unsupported audit action');
+    return action as TimelineAction;
+  }
+
+  private normalizeTimelineResult(outcome: string, action: string): TimelineResult {
+    if (outcome === 'replayed' || action.endsWith('_replayed')) return 'replayed';
+    if (outcome === 'created' || outcome === 'claimed' || outcome === 'closed' || outcome === 'removed') return 'succeeded';
+    throw new InternalServerErrorException('unsupported audit outcome');
+  }
+
+  private readTimelineMetadata(metadata: unknown): Record<string, string> {
+    if (metadata === null || metadata === undefined) return {};
+    if (typeof metadata !== 'object' || Array.isArray(metadata)) throw new InternalServerErrorException('invalid audit metadata');
+    const entries = Object.entries(metadata);
+    if (entries.some(([, value]) => typeof value !== 'string')) throw new InternalServerErrorException('invalid audit metadata');
+    return Object.fromEntries(entries) as Record<string, string>;
+  }
+
+  private subjectTypeFor(action: TimelineAction): TimelineSubjectType {
+    if (action.startsWith('operator_reply_')) return 'message';
+    if (action.startsWith('internal_note_')) return 'internal_note';
+    if (action.startsWith('conversation_tag_')) return 'conversation_tag';
+    return 'handoff_request';
+  }
+
+  private subjectRefFor(action: TimelineAction, metadata: Record<string, string>, requestId: string) {
+    if (action.startsWith('operator_reply_')) return metadata.messageId ?? null;
+    if (action.startsWith('internal_note_')) return metadata.noteId ?? null;
+    if (action.startsWith('handoff_')) return requestId;
+    return null;
+  }
+
+  private tagFor(action: TimelineAction, metadata: Record<string, string>): InternalTag | null {
+    if (!action.startsWith('conversation_tag_')) return null;
+    const tag = metadata.tag;
+    const allowed: InternalTag[] = ['urgent', 'billing', 'technical', 'follow_up'];
+    if (!tag || !allowed.includes(tag as InternalTag)) throw new InternalServerErrorException('unsupported audit tag');
+    return tag as InternalTag;
+  }
+
+  private maskActorId(actorId: string | null) {
+    if (!actorId) return null;
+    if (actorId.length <= 4) return '***';
+    return `${actorId.slice(0, 2)}***${actorId.slice(-2)}`;
+  }
+
+  private encodeTimelineCursor(requestId: string, occurredAt: Date, eventId: string) {
+    return Buffer.from(JSON.stringify({ requestId, occurredAt: occurredAt.toISOString(), eventId }), 'utf8').toString('base64url');
+  }
+
+  private decodeTimelineCursor(cursor: string, requestId: string) {
+    try {
+      const decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { requestId?: unknown; occurredAt?: unknown; eventId?: unknown };
+      if (decoded.requestId !== requestId || typeof decoded.occurredAt !== 'string' || typeof decoded.eventId !== 'string' || Number.isNaN(Date.parse(decoded.occurredAt))) {
+        throw new Error('invalid cursor');
+      }
+      return { occurredAt: new Date(decoded.occurredAt), eventId: decoded.eventId };
+    } catch {
+      throw new BadRequestException('timeline cursor is invalid');
+    }
   }
 
   private async authorizeConversation(

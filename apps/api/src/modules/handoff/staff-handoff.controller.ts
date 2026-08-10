@@ -5,6 +5,7 @@ import { ListStaffHandoffsDto } from './dto/list-staff-handoffs.dto.js';
 import { SendStaffReplyDto } from './dto/send-staff-reply.dto.js';
 import { CreateInternalNoteDto } from './dto/create-internal-note.dto.js';
 import { INTERNAL_TAGS, UpdateInternalTagDto } from './dto/update-internal-tag.dto.js';
+import { ListAuditTimelineDto } from './dto/list-audit-timeline.dto.js';
 
 @Controller('staff/handoff-requests')
 export class StaffHandoffController {
@@ -29,6 +30,17 @@ export class StaffHandoffController {
   ) {
     this.staffAuth.require(authorization, 'handoff:read');
     return this.handoff.getForStaff(requestId);
+  }
+
+  @Get(':requestId/timeline')
+  timeline(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('requestId') requestId: string,
+    @Query() query: ListAuditTimelineDto,
+  ) {
+    this.staffAuth.require(authorization, 'handoff:read');
+    this.staffAuth.require(authorization, 'conversation:read');
+    return this.handoff.getAuditTimeline(requestId, query.limit, query.cursor);
   }
 
   @Post(':requestId/claim')

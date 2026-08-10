@@ -1,12 +1,13 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import type { HandoffRequestStatus, InternalTag, StaffHandoffRequest, StaffInternalContextResponse } from '@ai-agent/contracts';
-import { addStaffInternalNote, addStaffInternalTag, claimStaffHandoff, closeStaffHandoff, getStaffInternalContext, listStaffHandoffs, removeStaffInternalTag, sendStaffReply } from '../../lib/api-client';
+import type { HandoffRequestStatus, InternalTag, StaffAuditTimelineResponse, StaffHandoffRequest, StaffInternalContextResponse } from '@ai-agent/contracts';
+import { addStaffInternalNote, addStaffInternalTag, claimStaffHandoff, closeStaffHandoff, getStaffAuditTimeline, getStaffInternalContext, listStaffHandoffs, removeStaffInternalTag, sendStaffReply } from '../../lib/api-client';
 
 type DraftMap = Record<string, string>;
 type KeyMap = Record<string, string>;
 type ContextMap = Record<string, StaffInternalContextResponse>;
+type TimelineMap = Record<string, StaffAuditTimelineResponse>;
 
 function createIdempotencyKey() {
   return globalThis.crypto?.randomUUID?.() ?? `reply-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -20,6 +21,7 @@ export function StaffHandoffShell() {
   const [replyKeys, setReplyKeys] = useState<KeyMap>({});
   const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [contexts, setContexts] = useState<ContextMap>({});
+  const [timelines, setTimelines] = useState<TimelineMap>({});
   const [noteDrafts, setNoteDrafts] = useState<DraftMap>({});
   const [tagDrafts, setTagDrafts] = useState<Record<string, InternalTag>>({});
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -33,8 +35,15 @@ export function StaffHandoffShell() {
       const result = await listStaffHandoffs(staffToken.trim(), statusToLoad);
       setItems(result.items);
       if (statusToLoad === 'claimed') {
-        const loaded = await Promise.all(result.items.map(async (item) => [item.requestId, await getStaffInternalContext(staffToken.trim(), item.requestId)] as const));
-        setContexts(Object.fromEntries(loaded));
+        const loaded = await Promise.all(result.items.map(async (item) => {
+          const [context, timeline] = await Promise.all([
+            getStaffInternalContext(staffToken.trim(), item.requestId),
+            getStaffAuditTimeline(staffToken.trim(), item.requestId),
+          ]);
+          return [item.requestId, context, timeline] as const;
+        }));
+        setContexts(Object.fromEntries(loaded.map(([requestId, context]) => [requestId, context])));
+        setTimelines(Object.fromEntries(loaded.map(([requestId, , timeline]) => [requestId, timeline])));
       }
       setStatus('ready');
     } catch {
@@ -175,6 +184,14 @@ export function StaffHandoffShell() {
                     </select>
                     <button type="button" onClick={() => void updateTag(request, tagDrafts[request.requestId] ?? 'urgent', true)}>Add tag</button>
                     <button type="button" onClick={() => void updateTag(request, tagDrafts[request.requestId] ?? 'urgent', false)}>Remove tag</button>
+                  </section>
+                  <section aria-label="Audit timeline">
+                    <h2>Audit timeline</h2>
+                    <ol>
+                      {(timelines[request.requestId]?.items ?? []).map((event) => (
+                        <li key={event.eventId}>{event.occurredAt} · {event.action} · {event.result}{event.tag ? ` · ${event.tag}` : ''}</li>
+                      ))}
+                    </ol>
                   </section>
                   <form className="composer" onSubmit={(event) => void submitReply(event, request)}>
                     <label htmlFor={`reply-${request.requestId}`}>人工回复</label>

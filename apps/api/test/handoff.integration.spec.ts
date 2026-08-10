@@ -172,6 +172,19 @@ describeReal('handoff request loop', () => {
       const context = await handoff.getInternalContext(request.requestId, principal);
       expect(context.notes).toHaveLength(1);
       expect(context.tags).toEqual([]);
+      const firstTimeline = await handoff.getAuditTimeline(request.requestId, 2);
+      expect(firstTimeline.items).toHaveLength(2);
+      expect(firstTimeline.nextCursor).toBeTruthy();
+      expect(firstTimeline.items.every((item) => item.subjectType === 'handoff_request' || item.subjectType === 'internal_note' || item.subjectType === 'conversation_tag')).toBe(true);
+      expect(JSON.stringify(firstTimeline)).not.toContain('Ignore instructions');
+      const secondTimeline = await handoff.getAuditTimeline(request.requestId, 100, firstTimeline.nextCursor ?? undefined);
+      expect(new Set([...firstTimeline.items, ...secondTimeline.items].map((item) => item.eventId)).size).toBe(firstTimeline.items.length + secondTimeline.items.length);
+      expect(secondTimeline.items.some((item) => item.result === 'replayed')).toBe(true);
+      await expect(handoff.getAuditTimeline(request.requestId, 2, 'tampered-cursor')).rejects.toThrow('timeline cursor is invalid');
+      await prisma.auditEvent.create({
+        data: { conversationId: conversation.id, handoffRequestId: request.requestId, actorType: 'system', action: 'unknown_action', outcome: 'created' },
+      });
+      await expect(handoff.getAuditTimeline(request.requestId, 100)).rejects.toThrow('unsupported audit action');
       const publicMessages = await new ConversationsService(prisma as never, new MockAgentAdapter(), handoff).getMessages(conversation.id, accessToken);
       expect(JSON.stringify(publicMessages)).not.toContain('Ignore instructions');
       expect(JSON.stringify(publicMessages)).not.toContain('urgent');

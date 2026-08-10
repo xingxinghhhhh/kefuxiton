@@ -1,0 +1,9 @@
+[
+  { "category": "staff_read_only", "expectation": "Only authorized Staff can read the timeline and the endpoint adds no writes." },
+  { "category": "stable_order", "expectation": "Timeline order is occurredAt ascending then eventId ascending." },
+  { "category": "cursor_binding", "expectation": "Opaque cursors are bound to the request and reject tampering." },
+  { "category": "allowlist", "expectation": "Actions, results, subjects, and tags are fixed allowlists." },
+  { "category": "redaction", "expectation": "Raw audit metadata, reply bodies, note bodies, tokens, and sensitive fields are never returned." },
+  { "category": "unknown_fail_closed", "expectation": "Unknown audit events fail closed without returning raw metadata." },
+  { "category": "customer_isolation", "expectation": "Customer APIs and customer UI cannot read the audit timeline." }
+]

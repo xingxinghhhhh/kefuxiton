@@ -287,6 +287,16 @@ try {
     headers: { authorization: `Bearer ${accessToken}` },
   });
   assert(!JSON.stringify(publicInternalLeak.body).includes('Synthetic internal context'), 'internal note must not leak into customer messages');
+  const timeline = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/timeline?limit=2`, {
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+  assert(timeline.response.status === 200, 'staff timeline must be readable');
+  assert(timeline.body.items?.length === 2 && timeline.body.nextCursor, 'timeline must paginate with a cursor');
+  assert(!JSON.stringify(timeline.body).includes('Synthetic internal context'), 'timeline must not expose internal note content');
+  const customerTimeline = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/timeline`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  assert(customerTimeline.response.status === 401, 'customer bearer token must not access audit timeline');
   const removedTag = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/tags/urgent`, {
     method: 'DELETE',
     headers: { authorization: `Staff ${staffToken}`, 'x-idempotency-key': 'smoke-tag-remove-1' },

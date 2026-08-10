@@ -6,6 +6,21 @@ export type HandoffRequestStatus = 'requested' | 'claimed' | 'closed';
 export type MessageSenderType = 'customer' | 'ai' | 'human_operator' | 'system';
 export type StaffPermission = 'handoff:read' | 'handoff:claim' | 'handoff:close' | 'handoff:reply' | 'handoff:context' | 'conversation:read';
 export type InternalTag = 'urgent' | 'billing' | 'technical' | 'follow_up';
+export type TimelineAction =
+  | 'handoff_requested'
+  | 'handoff_request_replayed'
+  | 'handoff_claimed'
+  | 'handoff_claim_replayed'
+  | 'handoff_closed'
+  | 'handoff_close_replayed'
+  | 'operator_reply_created'
+  | 'operator_reply_replayed'
+  | 'internal_note_created'
+  | 'internal_note_replayed'
+  | 'conversation_tag_added'
+  | 'conversation_tag_removed';
+export type TimelineResult = 'succeeded' | 'replayed' | 'rejected';
+export type TimelineSubjectType = 'handoff_request' | 'message' | 'internal_note' | 'conversation_tag';
 
 export interface Citation {
   id: string;
@@ -101,6 +116,25 @@ export interface StaffInternalContextResponse {
   conversationId: string;
   notes: InternalNoteView[];
   tags: ConversationTagView[];
+}
+
+export interface StaffAuditTimelineItem {
+  eventId: string;
+  occurredAt: string;
+  actorType: 'customer' | 'operator' | 'system';
+  actorRef: string | null;
+  action: TimelineAction;
+  result: TimelineResult;
+  subjectType: TimelineSubjectType;
+  subjectRef: string | null;
+  tag: InternalTag | null;
+}
+
+export interface StaffAuditTimelineResponse {
+  requestId: string;
+  conversationId: string;
+  items: StaffAuditTimelineItem[];
+  nextCursor: string | null;
 }
 
 export interface StaffHandoffMessage {

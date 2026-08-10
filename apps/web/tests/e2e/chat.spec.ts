@@ -72,6 +72,8 @@ test('staff queue enforces access, claims, and closes a handoff', async ({ page,
   await expect(claimedCard).toContainText('e2e internal note');
   await claimedCard.getByRole('button', { name: 'Add tag' }).click();
   await expect(claimedCard).toContainText('urgent');
+  await expect(claimedCard.getByRole('heading', { name: 'Audit timeline' })).toBeVisible();
+  await expect(claimedCard.getByRole('list').last()).toContainText('handoff_claimed');
   await claimedCard.locator('button').last().click();
 
   await page.locator('#handoff-status-filter').selectOption('closed');

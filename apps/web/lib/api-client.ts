@@ -8,6 +8,7 @@ import type {
   StaffReplyResponse,
   StaffInternalContextResponse,
   InternalTag,
+  StaffAuditTimelineResponse,
   StaffHandoffListResponse,
   SendMessageRequest,
   SendMessageResponse,
@@ -91,6 +92,14 @@ export function sendStaffReply(staffToken: string, requestId: string, content: s
 
 export function getStaffInternalContext(staffToken: string, requestId: string) {
   return request<StaffInternalContextResponse>(`/staff/handoff-requests/${requestId}/internal-context`, {
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+}
+
+export function getStaffAuditTimeline(staffToken: string, requestId: string, limit = 50, cursor?: string) {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (cursor) query.set('cursor', cursor);
+  return request<StaffAuditTimelineResponse>(`/staff/handoff-requests/${requestId}/timeline?${query.toString()}`, {
     headers: { authorization: `Staff ${staffToken}` },
   });
 }

@@ -271,6 +271,36 @@ paths:
         '401': { description: Missing or invalid staff identity }
         '403': { description: Insufficient permission or non-owner operator }
         '409': { description: Handoff is not claimed }
+  /staff/handoff-requests/{requestId}/timeline:
+    get:
+      operationId: getStaffAuditTimeline
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: cursor
+          required: false
+          schema: { type: string, maxLength: 512 }
+      responses:
+        '200':
+          description: Redacted read-only audit timeline for an authorized Staff operator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffAuditTimelineResponse' }
+        '400': { description: Invalid limit or cursor }
+        '401': { description: Missing or invalid staff identity }
+        '403': { description: Insufficient staff permission }
+        '404': { description: Handoff request not found }
   /staff/handoff-requests/{requestId}/notes:
     post:
       operationId: createStaffInternalNote
@@ -466,6 +496,30 @@ components:
               tag: { type: string, enum: [urgent, billing, technical, follow_up] }
               operatorId: { type: string }
               createdAt: { type: string, format: date-time }
+    StaffAuditTimelineResponse:
+      type: object
+      required: [requestId, conversationId, items, nextCursor]
+      properties:
+        requestId: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        nextCursor: { type: string, nullable: true }
+        items:
+          type: array
+          items:
+            type: object
+            required: [eventId, occurredAt, actorType, actorRef, action, result, subjectType, subjectRef, tag]
+            properties:
+              eventId: { type: string, format: uuid }
+              occurredAt: { type: string, format: date-time }
+              actorType: { type: string, enum: [customer, operator, system] }
+              actorRef: { type: string, nullable: true }
+              action:
+                type: string
+                enum: [handoff_requested, handoff_request_replayed, handoff_claimed, handoff_claim_replayed, handoff_closed, handoff_close_replayed, operator_reply_created, operator_reply_replayed, internal_note_created, internal_note_replayed, conversation_tag_added, conversation_tag_removed]
+              result: { type: string, enum: [succeeded, replayed, rejected] }
+              subjectType: { type: string, enum: [handoff_request, message, internal_note, conversation_tag] }
+              subjectRef: { type: string, nullable: true }
+              tag: { type: string, nullable: true, enum: [urgent, billing, technical, follow_up] }
     HandoffRequestResponse:
       type: object
       required: [conversationId, requestId, status, reasonCode, requestedAt, updatedAt, idempotent]
