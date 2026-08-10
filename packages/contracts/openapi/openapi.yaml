@@ -50,6 +50,59 @@ paths:
           description: Invalid message
         '401':
           description: Invalid conversation credentials
+  /conversations/{conversationId}/handoff-requests:
+    post:
+      operationId: requestHandoff
+      parameters:
+        - in: path
+          name: conversationId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+            example: Bearer one-time-conversation-token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reasonCode]
+              properties:
+                reasonCode: { type: string, enum: [customer_requested] }
+      responses:
+        '201':
+          description: Idempotent customer handoff request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffRequestResponse'
+        '401':
+          description: Invalid conversation credentials
+    get:
+      operationId: getHandoffStatus
+      parameters:
+        - in: path
+          name: conversationId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current handoff request or null
+        '401':
+          description: Invalid conversation credentials
 components:
   schemas:
     CreateConversationResponse:
@@ -77,11 +130,23 @@ components:
         contentSha256: { type: string, pattern: '^[a-f0-9]{64}$' }
     SendMessageResponse:
       type: object
-      required: [conversationId, messages, agentMode, responseType, citations, handoffRecommended]
+      required: [conversationId, messages, agentMode, responseType, citations, handoffRecommended, handoffStatus]
       properties:
         conversationId: { type: string, format: uuid }
         messages: { type: array, items: { type: object } }
-        agentMode: { type: string, enum: [mock, deterministic_knowledge] }
-        responseType: { type: string, enum: [safe_unavailable, knowledge_answer, handoff_recommended, mock_fallback] }
+        agentMode: { type: string, enum: [mock, deterministic_knowledge, handoff] }
+        responseType: { type: string, enum: [safe_unavailable, knowledge_answer, handoff_recommended, handoff_requested, mock_fallback] }
         citations: { type: array, items: { $ref: '#/components/schemas/Citation' } }
         handoffRecommended: { type: boolean }
+        handoffStatus: { type: string, nullable: true, enum: [requested, closed] }
+    HandoffRequestResponse:
+      type: object
+      required: [conversationId, requestId, status, reasonCode, requestedAt, updatedAt, idempotent]
+      properties:
+        conversationId: { type: string, format: uuid }
+        requestId: { type: string, format: uuid }
+        status: { type: string, enum: [requested, closed] }
+        reasonCode: { type: string, enum: [customer_requested] }
+        requestedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        idempotent: { type: boolean }

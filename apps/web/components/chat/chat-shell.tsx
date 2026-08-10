@@ -1,8 +1,8 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import type { CreateConversationResponse, MessageView, SendMessageResponse } from '@ai-agent/contracts';
-import { createConversation, sendMessage } from '../../lib/api-client';
+import type { CreateConversationResponse, HandoffRequestStatus, MessageView, SendMessageResponse } from '@ai-agent/contracts';
+import { createConversation, getHandoffStatus, requestHandoff, sendMessage } from '../../lib/api-client';
 
 export function ChatShell() {
   const [conversation, setConversation] = useState<CreateConversationResponse | null>(null);
@@ -11,6 +11,8 @@ export function ChatShell() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'sending' | 'error'>('loading');
   const [error, setError] = useState('');
   const [handoffRecommended, setHandoffRecommended] = useState(false);
+  const [handoffStatus, setHandoffStatus] = useState<HandoffRequestStatus | null>(null);
+  const [handoffError, setHandoffError] = useState('');
 
   useEffect(() => {
     const stored = window.sessionStorage.getItem('ai-agent-conversation');
@@ -19,7 +21,7 @@ export function ChatShell() {
         const parsed = JSON.parse(stored) as CreateConversationResponse;
         if (parsed.conversationId && parsed.accessToken) {
           setConversation(parsed);
-          setStatus('ready');
+          void restoreHandoffStatus(parsed);
           return;
         }
       } catch {
@@ -28,6 +30,18 @@ export function ChatShell() {
     }
     void startConversation();
   }, []);
+
+  async function restoreHandoffStatus(storedConversation: CreateConversationResponse) {
+    try {
+      const result = await getHandoffStatus(storedConversation);
+      setHandoffStatus(result?.status ?? null);
+      setHandoffRecommended(result?.status === 'requested');
+    } catch {
+      setHandoffError('暂时无法读取转人工状态，请稍后刷新。');
+    } finally {
+      setStatus('ready');
+    }
+  }
 
   async function startConversation() {
     setStatus('loading');
@@ -54,11 +68,24 @@ export function ChatShell() {
       const result: SendMessageResponse = await sendMessage(conversation, trimmed);
       setMessages((current) => [...current, ...result.messages]);
       setHandoffRecommended(result.handoffRecommended);
+      setHandoffStatus(result.handoffStatus);
       setContent('');
       setStatus('ready');
     } catch {
       setError('消息发送失败，请稍后重试。');
       setStatus('ready');
+    }
+  }
+
+  async function onRequestHandoff() {
+    if (!conversation || handoffStatus === 'requested') return;
+    setHandoffError('');
+    try {
+      const result = await requestHandoff(conversation);
+      setHandoffStatus(result.status);
+      setHandoffRecommended(true);
+    } catch {
+      setHandoffError('转人工请求失败，请稍后重试。');
     }
   }
 
@@ -102,7 +129,18 @@ export function ChatShell() {
           ))}
         </div>
 
-        {handoffRecommended && <p role="status">建议转人工服务台处理。</p>}
+        {handoffRecommended && handoffStatus !== 'requested' && (
+          <div className="handoff-panel" role="status">
+            <p>建议转人工服务台处理。</p>
+            <button type="button" onClick={() => void onRequestHandoff()}>
+              请求人工接入
+            </button>
+          </div>
+        )}
+        {handoffStatus === 'requested' && (
+          <p role="status">已提交转人工请求，正在等待人工接入。人工接入前不会继续自动回复。</p>
+        )}
+        {handoffError && <p className="error-message" role="alert">{handoffError}</p>}
         {error && <p className="error-message" role="alert">{error}</p>}
 
         <form className="composer" onSubmit={onSubmit}>
@@ -113,7 +151,7 @@ export function ChatShell() {
             onChange={(event) => setContent(event.target.value)}
             maxLength={2000}
             placeholder="例如：请介绍一下这个演示环境"
-            disabled={status !== 'ready'}
+            disabled={status !== 'ready' || handoffStatus === 'requested'}
             rows={3}
           />
           <div className="composer-footer">

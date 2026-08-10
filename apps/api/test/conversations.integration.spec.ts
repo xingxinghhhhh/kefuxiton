@@ -40,7 +40,11 @@ describe('conversation persistence and isolation', () => {
         }),
       ),
     };
-    const service = new ConversationsService(fakePrisma as never, new MockAgentAdapter());
+    const service = new ConversationsService(
+      fakePrisma as never,
+      new MockAgentAdapter(),
+      { getActiveRequest: jest.fn(async () => null) } as never,
+    );
 
     const result = await service.sendMessage(conversationId, 'valid-token', 'hello');
     expect(result.messages).toHaveLength(2);

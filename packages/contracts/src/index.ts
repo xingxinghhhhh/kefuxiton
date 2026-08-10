@@ -1,7 +1,8 @@
 export type ConversationStatus = 'active' | 'closed';
 export type MessageRole = 'user' | 'agent';
-export type AgentMode = 'mock' | 'deterministic_knowledge';
-export type ResponseType = 'safe_unavailable' | 'knowledge_answer' | 'handoff_recommended' | 'mock_fallback';
+export type AgentMode = 'mock' | 'deterministic_knowledge' | 'handoff';
+export type ResponseType = 'safe_unavailable' | 'knowledge_answer' | 'handoff_recommended' | 'handoff_requested' | 'mock_fallback';
+export type HandoffRequestStatus = 'requested' | 'closed';
 
 export interface Citation {
   id: string;
@@ -43,6 +44,17 @@ export interface SendMessageResponse {
   responseType: ResponseType;
   citations: Citation[];
   handoffRecommended: boolean;
+  handoffStatus: HandoffRequestStatus | null;
+}
+
+export interface HandoffRequestResponse {
+  conversationId: string;
+  requestId: string;
+  status: HandoffRequestStatus;
+  reasonCode: string;
+  requestedAt: string;
+  updatedAt: string;
+  idempotent: boolean;
 }
 
 export interface ApiErrorResponse {

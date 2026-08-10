@@ -164,6 +164,38 @@ try {
   assert(injection.body.handoffRecommended === true, 'injection must recommend handoff');
   assert(injection.body.citations?.length === 0, 'injection must not return citations');
 
+  const handoff = await requestJson(`/api/v1/conversations/${conversationId}/handoff-requests`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ reasonCode: 'customer_requested' }),
+  });
+  assert(handoff.response.status === 201, `handoff request returned HTTP ${handoff.response.status}`);
+  assert(handoff.body.status === 'requested', 'handoff request must be pending');
+  assert(handoff.body.idempotent === false, 'first handoff request must not be marked replayed');
+
+  const replayedHandoff = await requestJson(`/api/v1/conversations/${conversationId}/handoff-requests`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ reasonCode: 'customer_requested' }),
+  });
+  assert(replayedHandoff.body.requestId === handoff.body.requestId, 'handoff replay must return the same request');
+  assert(replayedHandoff.body.idempotent === true, 'handoff replay must be marked idempotent');
+
+  const handoffStatus = await requestJson(`/api/v1/conversations/${conversationId}/handoff-requests`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  assert(handoffStatus.body.requestId === handoff.body.requestId, 'handoff status must be scoped to the conversation');
+
+  const suppressed = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ content: '请继续回答我的问题' }),
+  });
+  assert(suppressed.body.responseType === 'handoff_requested', 'handoff must suppress automatic replies');
+  assert(suppressed.body.agentMode === 'handoff', 'suppressed reply must identify handoff mode');
+  assert(suppressed.body.handoffStatus === 'requested', 'suppressed reply must expose handoff status');
+  assert(suppressed.body.citations?.length === 0, 'handoff acknowledgement must not return citations');
+
   const denied = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: { authorization: 'Bearer invalid-token', 'content-type': 'application/json' },
@@ -175,9 +207,10 @@ try {
   api = startApi();
   await waitForHealth();
 
-  const afterRestart = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
+  const restartConversation = await requestJson('/api/v1/conversations', { method: 'POST' });
+  const afterRestart = await requestJson(`/api/v1/conversations/${restartConversation.body.conversationId}/messages`, {
     method: 'POST',
-    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    headers: { authorization: `Bearer ${restartConversation.body.accessToken}`, 'content-type': 'application/json' },
     body: JSON.stringify({ content: 'How can I access the synthetic office system after restart?' }),
   });
   assert(afterRestart.response.status === 201, `post-restart message returned HTTP ${afterRestart.response.status}`);
@@ -199,7 +232,7 @@ try {
   assert(fallbackMessage.body.citations?.length === 0, 'safe fallback must not fabricate citations');
   assert(fallbackMessage.body.handoffRecommended === false, 'safe fallback should not claim a handoff without a classified request');
 
-  console.log('production API smoke passed: published answer/citation, unknown refusal, injection block, restart, no-published fallback, invalid credentials');
+  console.log('production API smoke passed: published answer/citation, unknown refusal, injection block, idempotent handoff, suppression, restart, no-published fallback, invalid credentials');
 } finally {
   for (const child of childProcesses) await stopApi(child);
   await prisma.knowledgeDocument.deleteMany({ where: { sourceId: smokeSourceId } });

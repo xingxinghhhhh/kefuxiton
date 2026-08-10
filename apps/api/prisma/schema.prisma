@@ -17,6 +17,11 @@ enum MessageRole {
   agent
 }
 
+enum HandoffRequestStatus {
+  requested
+  closed
+}
+
 enum KnowledgeVersionStatus {
   draft
   published
@@ -32,6 +37,39 @@ model Conversation {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   messages        Message[]
+  handoffRequests HandoffRequest[]
+  auditEvents     AuditEvent[]
+}
+
+model HandoffRequest {
+  id             String              @id @default(uuid()) @db.Uuid
+  conversationId String              @db.Uuid
+  status         HandoffRequestStatus @default(requested)
+  reasonCode     String              @db.VarChar(64)
+  activeKey      String?             @unique @db.VarChar(64)
+  requestedAt    DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  closedAt       DateTime?
+  conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  auditEvents    AuditEvent[]
+
+  @@index([conversationId, status, requestedAt])
+}
+
+model AuditEvent {
+  id               String          @id @default(uuid()) @db.Uuid
+  conversationId   String?         @db.Uuid
+  handoffRequestId String?         @db.Uuid
+  actorType        String          @db.VarChar(32)
+  action           String          @db.VarChar(64)
+  outcome          String          @db.VarChar(32)
+  metadata         Json?
+  createdAt        DateTime        @default(now())
+  conversation     Conversation?   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  handoffRequest   HandoffRequest? @relation(fields: [handoffRequestId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([handoffRequestId, createdAt])
 }
 
 model KnowledgeDocument {

@@ -1,6 +1,7 @@
 import type {
   ApiErrorResponse,
   CreateConversationResponse,
+  HandoffRequestResponse,
   SendMessageRequest,
   SendMessageResponse,
 } from '@ai-agent/contracts';
@@ -29,5 +30,19 @@ export function sendMessage(conversation: CreateConversationResponse, content: s
     method: 'POST',
     headers: { authorization: `Bearer ${conversation.accessToken}` },
     body: JSON.stringify(body),
+  });
+}
+
+export function requestHandoff(conversation: CreateConversationResponse) {
+  return request<HandoffRequestResponse>(`/conversations/${conversation.conversationId}/handoff-requests`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${conversation.accessToken}` },
+    body: JSON.stringify({ reasonCode: 'customer_requested' }),
+  });
+}
+
+export function getHandoffStatus(conversation: CreateConversationResponse) {
+  return request<HandoffRequestResponse | null>(`/conversations/${conversation.conversationId}/handoff-requests`, {
+    headers: { authorization: `Bearer ${conversation.accessToken}` },
   });
 }
