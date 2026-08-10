@@ -52,7 +52,7 @@ describeReal('handoff request loop', () => {
       data: { accessTokenHash: hashConversationToken(accessToken) },
     });
     try {
-      await expect(handoff.request(conversation.id, 'wrong-token', 'customer_requested')).rejects.toThrow('会话凭证无效');
+      await expect(handoff.request(conversation.id, 'wrong-token', 'customer_requested')).rejects.toThrow('conversation credential is invalid');
       expect(await prisma.handoffRequest.count({ where: { conversationId: conversation.id } })).toBe(0);
     } finally {
       await prisma.conversation.delete({ where: { id: conversation.id } });
@@ -98,6 +98,47 @@ describeReal('handoff request loop', () => {
       expect(suppressed.messages).toHaveLength(1);
       expect(suppressed.handoffRecommended).toBe(false);
       expect(await prisma.auditEvent.count({ where: { handoffRequestId: request.requestId } })).toBe(5);
+    } finally {
+      await prisma.conversation.delete({ where: { id: conversation.id } });
+    }
+  });
+
+  it('persists an idempotent human reply for the claiming operator and exposes it to the customer', async () => {
+    const accessToken = `handoff-reply-test-${Date.now()}`;
+    const conversation = await prisma.conversation.create({
+      data: { accessTokenHash: hashConversationToken(accessToken) },
+    });
+    const principal: StaffPrincipal = {
+      staffId: 'reply-operator',
+      permissions: ['handoff:read', 'handoff:claim', 'handoff:close', 'handoff:reply', 'conversation:read'],
+    };
+    const otherPrincipal: StaffPrincipal = { ...principal, staffId: 'other-operator' };
+
+    try {
+      const request = await handoff.request(conversation.id, accessToken, 'customer_requested');
+      const conversations = new ConversationsService(prisma as never, new MockAgentAdapter(), handoff);
+      await conversations.sendMessage(conversation.id, accessToken, 'waiting for an operator');
+      await expect(handoff.reply(request.requestId, principal, 'not claimed yet', 'before-claim', 'reply-before-claim'))
+        .rejects.toThrow('only claimed handoffs accept replies');
+      await handoff.claim(request.requestId, principal, 'reply-claim');
+      await expect(handoff.reply(request.requestId, otherPrincipal, 'not allowed', 'other-key', 'reply-forbidden'))
+        .rejects.toThrow('only the claiming Operator can reply');
+
+      const first = await handoff.reply(request.requestId, principal, '人工回复内容', 'reply-key-1', 'reply-request-1');
+      const replay = await handoff.reply(request.requestId, principal, 'different content is ignored', 'reply-key-1', 'reply-request-2');
+      expect(first.idempotent).toBe(false);
+      expect(replay).toEqual({ ...first, idempotent: true });
+      expect(first.message.senderType).toBe('human_operator');
+      expect(first.message.responseType).toBe('human_reply');
+
+      const history = await conversations.getMessages(conversation.id, accessToken);
+      expect(history.messages.at(-1)).toMatchObject({ content: '人工回复内容', senderType: 'human_operator' });
+      expect(await prisma.operatorReply.count({ where: { handoffRequestId: request.requestId } })).toBe(1);
+      expect(await prisma.auditEvent.count({ where: { handoffRequestId: request.requestId, action: { in: ['operator_reply_created', 'operator_reply_replayed'] } } })).toBe(2);
+
+      await handoff.close(request.requestId, principal, 'reply-close');
+      await expect(handoff.reply(request.requestId, principal, 'after close', 'reply-key-2', 'reply-after-close'))
+        .rejects.toThrow('only claimed handoffs accept replies');
     } finally {
       await prisma.conversation.delete({ where: { id: conversation.id } });
     }

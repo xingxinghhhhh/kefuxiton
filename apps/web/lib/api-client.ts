@@ -4,6 +4,8 @@ import type {
   HandoffRequestResponse,
   HandoffActionResponse,
   HandoffRequestStatus,
+  ConversationMessagesResponse,
+  StaffReplyResponse,
   StaffHandoffListResponse,
   SendMessageRequest,
   SendMessageResponse,
@@ -33,6 +35,12 @@ export function sendMessage(conversation: CreateConversationResponse, content: s
     method: 'POST',
     headers: { authorization: `Bearer ${conversation.accessToken}` },
     body: JSON.stringify(body),
+  });
+}
+
+export function getMessages(conversation: CreateConversationResponse) {
+  return request<ConversationMessagesResponse>(`/conversations/${conversation.conversationId}/messages`, {
+    headers: { authorization: `Bearer ${conversation.accessToken}` },
   });
 }
 
@@ -68,5 +76,13 @@ export function closeStaffHandoff(staffToken: string, requestId: string) {
   return request<HandoffActionResponse>(`/staff/handoff-requests/${requestId}/close`, {
     method: 'POST',
     headers: { authorization: `Staff ${staffToken}` },
+  });
+}
+
+export function sendStaffReply(staffToken: string, requestId: string, content: string, idempotencyKey: string) {
+  return request<StaffReplyResponse>(`/staff/handoff-requests/${requestId}/replies`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}`, 'x-idempotency-key': idempotencyKey },
+    body: JSON.stringify({ content, idempotencyKey }),
   });
 }

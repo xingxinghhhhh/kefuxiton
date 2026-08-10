@@ -88,6 +88,18 @@ describeReal('real PostgreSQL integration', () => {
     expect(sent.body.responseType).toBe('knowledge_answer');
     expect(sent.body.citations).toHaveLength(1);
 
+    const history = await request(app.getHttpServer())
+      .get(`/api/v1/conversations/${conversationId}/messages`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(history.body.messages).toHaveLength(2);
+    expect(history.body.messages.map((message: { senderType: string }) => message.senderType)).toEqual(['customer', 'ai']);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/conversations/${secondConversationId}/messages`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+
     await request(app.getHttpServer())
       .post(`/api/v1/conversations/${conversationId}/messages`)
       .set('Authorization', 'Bearer wrong-token')

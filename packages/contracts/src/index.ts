@@ -1,9 +1,10 @@
 export type ConversationStatus = 'active' | 'closed';
 export type MessageRole = 'user' | 'agent';
-export type AgentMode = 'mock' | 'deterministic_knowledge' | 'handoff';
-export type ResponseType = 'safe_unavailable' | 'knowledge_answer' | 'handoff_recommended' | 'handoff_requested' | 'handoff_pending' | 'mock_fallback';
+export type AgentMode = 'mock' | 'deterministic_knowledge' | 'handoff' | 'human_operator';
+export type ResponseType = 'safe_unavailable' | 'knowledge_answer' | 'handoff_recommended' | 'handoff_requested' | 'handoff_pending' | 'human_reply' | 'mock_fallback';
 export type HandoffRequestStatus = 'requested' | 'claimed' | 'closed';
-export type StaffPermission = 'handoff:read' | 'handoff:claim' | 'handoff:close' | 'conversation:read';
+export type MessageSenderType = 'customer' | 'ai' | 'human_operator' | 'system';
+export type StaffPermission = 'handoff:read' | 'handoff:claim' | 'handoff:close' | 'handoff:reply' | 'conversation:read';
 
 export interface Citation {
   id: string;
@@ -34,6 +35,7 @@ export interface MessageView {
   content: string;
   responseType: ResponseType | null;
   agentMode: AgentMode | null;
+  senderType: MessageSenderType;
   citations: Citation[];
   createdAt: string;
 }
@@ -68,9 +70,22 @@ export interface HandoffActionResponse {
   idempotent: boolean;
 }
 
+export interface ConversationMessagesResponse {
+  conversationId: string;
+  messages: MessageView[];
+}
+
+export interface StaffReplyResponse {
+  requestId: string;
+  replyId: string;
+  message: MessageView;
+  idempotent: boolean;
+}
+
 export interface StaffHandoffMessage {
   id: string;
   role: MessageRole;
+  senderType: MessageSenderType;
   content: string;
   createdAt: string;
 }

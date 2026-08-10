@@ -8,7 +8,7 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:3000', trace: 'retain-on-failure', ...devices['Desktop Chrome'] },
   webServer: [
     {
-      command: 'pnpm --filter @ai-agent/api dev',
+      command: 'pnpm --filter @ai-agent/api start',
       url: 'http://127.0.0.1:3001/api/v1/health',
       reuseExistingServer: true,
       env: {

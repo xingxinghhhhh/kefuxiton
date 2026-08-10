@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Param, Post, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, UnauthorizedException } from '@nestjs/common';
 import { SendMessageDto } from './dto/send-message.dto.js';
 import { extractBearerToken } from './conversation-token.js';
 import { ConversationsService } from './conversations.service.js';
@@ -19,7 +19,17 @@ export class ConversationsController {
     @Body() body: SendMessageDto,
   ) {
     const token = extractBearerToken(authorization);
-    if (!token) throw new UnauthorizedException('会话凭证无效。');
+    if (!token) throw new UnauthorizedException('conversation credential is invalid');
     return this.conversations.sendMessage(conversationId, token, body.content);
+  }
+
+  @Get(':conversationId/messages')
+  getMessages(
+    @Param('conversationId') conversationId: string,
+    @Headers('authorization') authorization: string | undefined,
+  ) {
+    const token = extractBearerToken(authorization);
+    if (!token) throw new UnauthorizedException('conversation credential is invalid');
+    return this.conversations.getMessages(conversationId, token);
   }
 }

@@ -1,6 +1,6 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import type { AgentMode, ResponseType } from '@ai-agent/contracts';
+import type { AgentMode, ConversationMessagesResponse, MessageSenderType, ResponseType } from '@ai-agent/contracts';
 import type { AgentPort } from '../agent/agent.port.js';
 import { AGENT_PORT } from '../agent/agent.port.js';
 import { createConversationToken, hashConversationToken } from './conversation-token.js';
@@ -33,7 +33,7 @@ export class ConversationsService {
       where: { id: conversationId, accessTokenHash: hashConversationToken(accessToken), status: 'active' },
       select: { id: true },
     });
-    if (!authorizedConversation) throw new UnauthorizedException('会话凭证无效。');
+    if (!authorizedConversation) throw new UnauthorizedException('conversation credential is invalid');
 
     const handoffRequest = await this.handoff.getConversationRequest(conversationId);
     if (handoffRequest) {
@@ -41,8 +41,10 @@ export class ConversationsService {
         const conversation = await tx.conversation.findFirst({
           where: { id: conversationId, accessTokenHash: hashConversationToken(accessToken), status: 'active' },
         });
-        if (!conversation) throw new UnauthorizedException('会话凭证无效。');
-        const userMessage = await tx.message.create({ data: { conversationId, role: 'user', content } });
+        if (!conversation) throw new UnauthorizedException('conversation credential is invalid');
+        const userMessage = await tx.message.create({
+          data: { conversationId, role: 'user', senderType: 'customer', content },
+        });
         return {
           conversationId,
           messages: [this.toMessageView(userMessage)],
@@ -62,10 +64,10 @@ export class ConversationsService {
       const conversation = await tx.conversation.findFirst({
         where: { id: conversationId, accessTokenHash: hashConversationToken(accessToken), status: 'active' },
       });
-      if (!conversation) throw new UnauthorizedException('会话凭证无效。');
+      if (!conversation) throw new UnauthorizedException('conversation credential is invalid');
 
       const userMessage = await tx.message.create({
-        data: { conversationId, role: 'user', content },
+        data: { conversationId, role: 'user', senderType: 'customer', content },
       });
       const agentMessage = await tx.message.create({
         data: {
@@ -74,6 +76,7 @@ export class ConversationsService {
           content: agentResult.content,
           responseType: agentResult.responseType,
           agentMode: agentResult.agentMode,
+          senderType: 'ai',
           citations: agentResult.citations as unknown as Prisma.InputJsonValue,
         },
       });
@@ -91,12 +94,23 @@ export class ConversationsService {
     });
   }
 
+  async getMessages(conversationId: string, accessToken: string): Promise<ConversationMessagesResponse> {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, accessTokenHash: hashConversationToken(accessToken), status: 'active' },
+      select: { id: true },
+    });
+    if (!conversation) throw new UnauthorizedException('conversation credential is invalid');
+    const messages = await this.prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: 'asc' } });
+    return { conversationId, messages: messages.map((message) => this.toMessageView(message)) };
+  }
+
   private toMessageView(message: {
     id: string;
     role: 'user' | 'agent';
     content: string;
     responseType: string | null;
     agentMode: string | null;
+    senderType: string | null;
     citations: unknown;
     createdAt: Date;
   }) {
@@ -106,6 +120,7 @@ export class ConversationsService {
       content: message.content,
       responseType: message.responseType as ResponseType | null,
       agentMode: message.agentMode as AgentMode | null,
+      senderType: (message.senderType ?? (message.role === 'user' ? 'customer' : 'ai')) as MessageSenderType,
       citations: Array.isArray(message.citations) ? message.citations : [],
       createdAt: message.createdAt.toISOString(),
     };

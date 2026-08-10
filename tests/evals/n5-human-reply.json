@@ -1,0 +1,8 @@
+[
+  { "id": "reply-created", "category": "reply_created", "expected": "human_reply" },
+  { "id": "reply-source", "category": "sender_marker", "expected": "human_operator" },
+  { "id": "reply-idempotency", "category": "idempotency", "expected": "single_message" },
+  { "id": "reply-claim-owner", "category": "claim_owner", "expected": "denied" },
+  { "id": "customer-public-read", "category": "customer_read", "expected": "visible" },
+  { "id": "reply-no-agent", "category": "ai_suppression", "expected": "no_agent_call" }
+]

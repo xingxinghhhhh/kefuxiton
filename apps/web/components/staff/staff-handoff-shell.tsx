@@ -1,22 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import type { HandoffRequestStatus, StaffHandoffRequest } from '@ai-agent/contracts';
-import { claimStaffHandoff, closeStaffHandoff, listStaffHandoffs } from '../../lib/api-client';
+import { claimStaffHandoff, closeStaffHandoff, listStaffHandoffs, sendStaffReply } from '../../lib/api-client';
+
+type DraftMap = Record<string, string>;
+type KeyMap = Record<string, string>;
+
+function createIdempotencyKey() {
+  return globalThis.crypto?.randomUUID?.() ?? `reply-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 export function StaffHandoffShell() {
   const [staffToken, setStaffToken] = useState('');
   const [items, setItems] = useState<StaffHandoffRequest[]>([]);
   const [queueStatus, setQueueStatus] = useState<HandoffRequestStatus>('requested');
+  const [replyDrafts, setReplyDrafts] = useState<DraftMap>({});
+  const [replyKeys, setReplyKeys] = useState<KeyMap>({});
+  const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [error, setError] = useState('');
 
-  async function loadQueue(status = queueStatus) {
+  async function loadQueue(statusToLoad = queueStatus) {
     if (!staffToken.trim()) return;
     setStatus('loading');
     setError('');
     try {
-      const result = await listStaffHandoffs(staffToken.trim(), status);
+      const result = await listStaffHandoffs(staffToken.trim(), statusToLoad);
       setItems(result.items);
       setStatus('ready');
     } catch {
@@ -35,6 +45,30 @@ export function StaffHandoffShell() {
       await loadQueue(nextStatus);
     } catch {
       setError('状态更新失败，请刷新后重试。');
+    }
+  }
+
+  async function submitReply(event: FormEvent<HTMLFormElement>, request: StaffHandoffRequest) {
+    event.preventDefault();
+    const content = (replyDrafts[request.requestId] ?? '').trim();
+    if (!content || sendingReply) return;
+    const idempotencyKey = replyKeys[request.requestId] ?? createIdempotencyKey();
+    setReplyKeys((current) => ({ ...current, [request.requestId]: idempotencyKey }));
+    setSendingReply(request.requestId);
+    setError('');
+    try {
+      await sendStaffReply(staffToken.trim(), request.requestId, content, idempotencyKey);
+      setReplyDrafts((current) => ({ ...current, [request.requestId]: '' }));
+      setReplyKeys((current) => {
+        const next = { ...current };
+        delete next[request.requestId];
+        return next;
+      });
+      await loadQueue('claimed');
+    } catch {
+      setError('人工回复发送失败，内容已保留，请重试。');
+    } finally {
+      setSendingReply(null);
     }
   }
 
@@ -62,7 +96,7 @@ export function StaffHandoffShell() {
             {status === 'loading' ? '加载中…' : '加载队列'}
           </button>
         </form>
-        <label htmlFor="handoff-status-filter">闃熷垪鐘舵€?</label>
+        <label htmlFor="handoff-status-filter">队列状态</label>
         <select
           id="handoff-status-filter"
           aria-label="handoff status filter"
@@ -78,7 +112,7 @@ export function StaffHandoffShell() {
           <option value="closed">closed</option>
         </select>
         {error && <p className="error-message" role="alert">{error}</p>}
-        {status === 'ready' && items.length === 0 && <p role="status">当前没有待处理接管请求。</p>}
+        {status === 'ready' && items.length === 0 && <p role="status">当前没有符合条件的接管请求。</p>}
         <div className="message-list" aria-live="polite">
           {items.map((request) => (
             <article key={request.requestId} className="message message-agent">
@@ -87,14 +121,29 @@ export function StaffHandoffShell() {
               <p>原因：{request.reasonCode}</p>
               <ul>
                 {request.recentMessages.map((message) => (
-                  <li key={message.id}>{message.role}: {message.content}</li>
+                  <li key={message.id}>{message.senderType}: {message.content}</li>
                 ))}
               </ul>
               {request.status === 'requested' && (
                 <button type="button" onClick={() => void updateRequest(request, 'claim')}>接管</button>
               )}
               {request.status === 'claimed' && (
-                <button type="button" onClick={() => void updateRequest(request, 'close')}>关闭</button>
+                <>
+                  <form className="composer" onSubmit={(event) => void submitReply(event, request)}>
+                    <label htmlFor={`reply-${request.requestId}`}>人工回复</label>
+                    <textarea
+                      id={`reply-${request.requestId}`}
+                      value={replyDrafts[request.requestId] ?? ''}
+                      onChange={(event) => setReplyDrafts((current) => ({ ...current, [request.requestId]: event.target.value }))}
+                      maxLength={2000}
+                      rows={3}
+                    />
+                    <button type="submit" disabled={!replyDrafts[request.requestId]?.trim() || sendingReply !== null}>
+                      {sendingReply === request.requestId ? '发送中…' : '发送人工回复'}
+                    </button>
+                  </form>
+                  <button type="button" onClick={() => void updateRequest(request, 'close')}>关闭</button>
+                </>
               )}
             </article>
           ))}

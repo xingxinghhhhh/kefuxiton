@@ -12,7 +12,9 @@ export interface AuditRecordInput {
     | 'handoff_claimed'
     | 'handoff_claim_replayed'
     | 'handoff_closed'
-    | 'handoff_close_replayed';
+    | 'handoff_close_replayed'
+    | 'operator_reply_created'
+    | 'operator_reply_replayed';
   outcome: 'created' | 'replayed' | 'claimed' | 'closed';
   metadata?: Record<string, string>;
 }

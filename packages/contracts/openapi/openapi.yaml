@@ -50,6 +50,26 @@ paths:
           description: Invalid message
         '401':
           description: Invalid conversation credentials
+    get:
+      operationId: getConversationMessages
+      parameters:
+        - in: path
+          name: conversationId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Public messages for the authorized conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationMessagesResponse'
+        '401':
+          description: Invalid conversation credentials
   /conversations/{conversationId}/handoff-requests:
     post:
       operationId: requestHandoff
@@ -193,6 +213,43 @@ paths:
           description: Insufficient staff permission
         '409':
           description: Handoff state conflict
+  /staff/handoff-requests/{requestId}/replies:
+    post:
+      operationId: sendStaffHandoffReply
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Request-Id
+          required: false
+          schema: { type: string, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffReplyRequest'
+      responses:
+        '201':
+          description: Human operator reply, idempotently
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffReplyResponse'
+        '400':
+          description: Invalid reply content or idempotency key
+        '401':
+          description: Missing or invalid staff identity
+        '403':
+          description: Insufficient staff permission or not the claiming operator
+        '409':
+          description: Handoff is not claimed
 components:
   schemas:
     CreateConversationResponse:
@@ -223,14 +280,46 @@ components:
       required: [conversationId, messages, agentMode, responseType, citations, handoffRecommended, handoffStatus]
       properties:
         conversationId: { type: string, format: uuid }
-        messages: { type: array, items: { type: object } }
-        agentMode: { type: string, enum: [mock, deterministic_knowledge, handoff] }
-        responseType: { type: string, enum: [safe_unavailable, knowledge_answer, handoff_recommended, handoff_requested, handoff_pending, mock_fallback] }
+        messages: { type: array, items: { $ref: '#/components/schemas/MessageView' } }
+        agentMode: { type: string, enum: [mock, deterministic_knowledge, handoff, human_operator] }
+        responseType: { type: string, enum: [safe_unavailable, knowledge_answer, handoff_recommended, handoff_requested, handoff_pending, human_reply, mock_fallback] }
         citations: { type: array, items: { $ref: '#/components/schemas/Citation' } }
         handoffRecommended: { type: boolean }
         handoffStatus: { type: string, nullable: true, enum: [requested, claimed, closed] }
         handoffRequestId: { type: string, format: uuid, nullable: true }
         assistantMessageId: { type: string, format: uuid, nullable: true }
+    ConversationMessagesResponse:
+      type: object
+      required: [conversationId, messages]
+      properties:
+        conversationId: { type: string, format: uuid }
+        messages: { type: array, items: { $ref: '#/components/schemas/MessageView' } }
+    MessageView:
+      type: object
+      required: [id, role, content, responseType, agentMode, senderType, citations, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        role: { type: string, enum: [user, agent] }
+        content: { type: string }
+        responseType: { type: string, nullable: true, enum: [safe_unavailable, knowledge_answer, handoff_recommended, handoff_requested, handoff_pending, human_reply, mock_fallback] }
+        agentMode: { type: string, nullable: true, enum: [mock, deterministic_knowledge, handoff, human_operator] }
+        senderType: { type: string, enum: [customer, ai, human_operator, system] }
+        citations: { type: array, items: { $ref: '#/components/schemas/Citation' } }
+        createdAt: { type: string, format: date-time }
+    StaffReplyRequest:
+      type: object
+      required: [content, idempotencyKey]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 2000 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+    StaffReplyResponse:
+      type: object
+      required: [requestId, replyId, message, idempotent]
+      properties:
+        requestId: { type: string, format: uuid }
+        replyId: { type: string, format: uuid }
+        message: { $ref: '#/components/schemas/MessageView' }
+        idempotent: { type: boolean }
     HandoffRequestResponse:
       type: object
       required: [conversationId, requestId, status, reasonCode, requestedAt, updatedAt, idempotent]
@@ -272,4 +361,14 @@ components:
         claimedBy: { type: string, nullable: true }
         claimedAt: { type: string, format: date-time, nullable: true }
         closedAt: { type: string, format: date-time, nullable: true }
-        recentMessages: { type: array, items: { type: object } }
+        recentMessages:
+          type: array
+          items:
+            type: object
+            required: [id, role, senderType, content, createdAt]
+            properties:
+              id: { type: string, format: uuid }
+              role: { type: string, enum: [user, agent] }
+              senderType: { type: string, enum: [customer, ai, human_operator, system] }
+              content: { type: string }
+              createdAt: { type: string, format: date-time }

@@ -6,14 +6,18 @@ const requireFromApi = createRequire(new URL('../../apps/api/package.json', impo
 const { PrismaClient } = requireFromApi('@prisma/client');
 
 const baseUrl = process.env.API_BASE_URL ?? 'http://127.0.0.1:3011';
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const inputDatabaseUrl = process.env.DATABASE_URL;
+if (!inputDatabaseUrl) {
   throw new Error('DATABASE_URL is required for the production API smoke test');
 }
 
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const childProcesses = new Set();
 let lastApiOutput = [];
+const smokeSchema = `api_smoke_${Date.now()}_${process.pid}`;
+const isolatedDatabaseUrl = new URL(inputDatabaseUrl);
+isolatedDatabaseUrl.searchParams.set('schema', smokeSchema);
+const databaseUrl = isolatedDatabaseUrl.toString();
 const smokeSourceId = 'TEST-ONLY-PRODUCTION-SMOKE-KNOWLEDGE';
 const staffToken = 'test-only-staff-token';
 const smokeMarkdown = `---
@@ -48,6 +52,17 @@ Use the approved synthetic access process and do not share credentials.
 
 - Escalate if identity cannot be confirmed.
 `;
+const adminPrisma = new PrismaClient({ datasources: { db: { url: inputDatabaseUrl } } });
+await adminPrisma.$executeRawUnsafe(`CREATE SCHEMA "${smokeSchema}"`);
+await adminPrisma.$disconnect();
+const migration = spawnSync(pnpmCommand, ['--filter', '@ai-agent/api', 'db:migrate'], {
+  cwd: process.cwd(),
+  env: { ...process.env, DATABASE_URL: databaseUrl },
+  stdio: 'inherit',
+  shell: process.platform === 'win32',
+  windowsHide: true,
+});
+if (migration.status !== 0) throw new Error('API smoke isolated schema migration failed');
 const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
 const knowledge = new KnowledgeService(prisma);
 
@@ -225,6 +240,26 @@ try {
   });
   assert(claimReplay.body.status === 'claimed' && claimReplay.body.idempotent === true, 'staff claim must be idempotent');
 
+  const humanReply = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/replies`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}`, 'content-type': 'application/json', 'x-request-id': 'smoke-human-reply-1' },
+    body: JSON.stringify({ content: 'Synthetic human reply from the test operator.', idempotencyKey: 'smoke-reply-1' }),
+  });
+  assert(humanReply.response.status === 201, `human reply returned HTTP ${humanReply.response.status}`);
+  assert(humanReply.body.idempotent === false, 'first human reply must not be marked replayed');
+  assert(humanReply.body.message?.senderType === 'human_operator', 'human reply must identify its sender');
+  assert(humanReply.body.message?.responseType === 'human_reply', 'human reply must identify its response type');
+  const humanReplyReplay = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/replies`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}`, 'content-type': 'application/json', 'x-request-id': 'smoke-human-reply-2' },
+    body: JSON.stringify({ content: 'different content must be ignored', idempotencyKey: 'smoke-reply-1' }),
+  });
+  assert(humanReplyReplay.body.replyId === humanReply.body.replyId && humanReplyReplay.body.idempotent === true, 'human reply must be idempotent');
+  const customerMessages = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  assert(customerMessages.body.messages?.some((message) => message.senderType === 'human_operator' && message.content === 'Synthetic human reply from the test operator.'), 'customer must read the human reply');
+
   const claimedStatus = await requestJson(`/api/v1/conversations/${conversationId}/handoff-requests`, {
     headers: { authorization: `Bearer ${accessToken}` },
   });
@@ -285,9 +320,12 @@ try {
   assert(fallbackMessage.body.citations?.length === 0, 'safe fallback must not fabricate citations');
   assert(fallbackMessage.body.handoffRecommended === false, 'safe fallback should not claim a handoff without a classified request');
 
-  console.log('production API smoke passed: published answer/citation, unknown refusal, injection block, idempotent handoff, suppression, restart, no-published fallback, invalid credentials');
+  console.log('production API smoke passed: published answer/citation, unknown refusal, injection block, idempotent handoff, suppression, human reply, restart, no-published fallback, invalid credentials');
 } finally {
   for (const child of childProcesses) await stopApi(child);
   await prisma.knowledgeDocument.deleteMany({ where: { sourceId: smokeSourceId } });
   await prisma.$disconnect();
+  const cleanupPrisma = new PrismaClient({ datasources: { db: { url: inputDatabaseUrl } } });
+  await cleanupPrisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${smokeSchema}" CASCADE`);
+  await cleanupPrisma.$disconnect();
 }

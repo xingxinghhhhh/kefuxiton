@@ -1,7 +1,8 @@
-import { Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
 import { StaffAuthService } from '../auth/staff-auth.service.js';
 import { HandoffService } from './handoff.service.js';
 import { ListStaffHandoffsDto } from './dto/list-staff-handoffs.dto.js';
+import { SendStaffReplyDto } from './dto/send-staff-reply.dto.js';
 
 @Controller('staff/handoff-requests')
 export class StaffHandoffController {
@@ -46,5 +47,16 @@ export class StaffHandoffController {
   ) {
     const principal = this.staffAuth.require(authorization, 'handoff:close');
     return this.handoff.close(requestId, principal, requestIdHeader ?? 'staff-close');
+  }
+
+  @Post(':requestId/replies')
+  reply(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-request-id') requestIdHeader: string | undefined,
+    @Param('requestId') requestId: string,
+    @Body() body: SendStaffReplyDto,
+  ) {
+    const principal = this.staffAuth.require(authorization, 'handoff:reply');
+    return this.handoff.reply(requestId, principal, body.content, body.idempotencyKey, requestIdHeader ?? 'staff-reply');
   }
 }

@@ -64,8 +64,18 @@ test('staff queue enforces access, claims, and closes a handoff', async ({ page,
   await page.locator('#handoff-status-filter').selectOption('claimed');
   const claimedCard = page.locator('.message-list article').filter({ hasText: conversation.conversationId });
   await expect(claimedCard).toContainText('claimed');
-  await claimedCard.locator('button').click();
+  await claimedCard.locator('textarea').fill('staff e2e reply');
+  await claimedCard.locator('form button[type="submit"]').click();
+  await expect(claimedCard).toContainText('staff e2e reply');
+  await claimedCard.locator('button').last().click();
 
   await page.locator('#handoff-status-filter').selectOption('closed');
   await expect(page.locator('.message-list article').filter({ hasText: conversation.conversationId })).toContainText('closed');
+
+  await page.addInitScript((storedConversation) => {
+    window.sessionStorage.setItem('ai-agent-conversation', JSON.stringify(storedConversation));
+  }, conversation);
+  await page.goto('/chat');
+  await expect(page.getByText('staff e2e reply')).toBeVisible();
+  await expect(page.locator('#message')).toBeDisabled();
 });

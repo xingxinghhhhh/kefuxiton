@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import type { CreateConversationResponse, HandoffRequestStatus, MessageView, SendMessageResponse } from '@ai-agent/contracts';
-import { createConversation, getHandoffStatus, requestHandoff, sendMessage } from '../../lib/api-client';
+import { createConversation, getHandoffStatus, getMessages, requestHandoff, sendMessage } from '../../lib/api-client';
 
 export function ChatShell() {
   const [conversation, setConversation] = useState<CreateConversationResponse | null>(null);
@@ -33,9 +33,13 @@ export function ChatShell() {
 
   async function restoreHandoffStatus(storedConversation: CreateConversationResponse) {
     try {
-      const result = await getHandoffStatus(storedConversation);
-      setHandoffStatus(result?.status ?? null);
-      setHandoffRecommended(result?.status !== undefined && result?.status !== null && result.status !== 'closed');
+      const [handoff, history] = await Promise.all([
+        getHandoffStatus(storedConversation),
+        getMessages(storedConversation),
+      ]);
+      setMessages(history.messages);
+      setHandoffStatus(handoff?.status ?? null);
+      setHandoffRecommended(handoff?.status !== undefined && handoff?.status !== null && handoff.status !== 'closed');
     } catch {
       setHandoffError('暂时无法读取转人工状态，请稍后刷新。');
     } finally {
@@ -110,7 +114,7 @@ export function ChatShell() {
           )}
           {messages.map((message) => (
             <article key={message.id} className={`message message-${message.role}`}>
-              <span className="message-role">{message.role === 'user' ? '你' : '演示 Agent'}</span>
+              <span className="message-role">{message.senderType === 'human_operator' ? '人工客服' : message.role === 'user' ? '你' : '演示 Agent'}</span>
               <p>{message.content}</p>
               {message.responseType && <small>响应类型：{message.responseType}</small>}
               {message.citations.length > 0 && (

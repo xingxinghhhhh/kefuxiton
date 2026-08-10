@@ -55,6 +55,7 @@ model HandoffRequest {
   closedAt       DateTime?
   conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   auditEvents    AuditEvent[]
+  operatorReplies OperatorReply[]
 
   @@index([conversationId, status, requestedAt])
 }
@@ -133,9 +134,25 @@ model Message {
   content        String       @db.Text
   responseType   String?      @db.VarChar(64)
   agentMode      String?      @db.VarChar(32)
+  senderType     String?      @db.VarChar(32)
   citations      Json?
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  operatorReply  OperatorReply?
 
   @@index([conversationId, createdAt])
+}
+
+model OperatorReply {
+  id              String        @id @default(uuid()) @db.Uuid
+  handoffRequestId String       @db.Uuid
+  messageId       String        @unique @db.Uuid
+  operatorId      String        @db.VarChar(255)
+  idempotencyKey  String        @db.VarChar(128)
+  createdAt       DateTime      @default(now())
+  handoffRequest  HandoffRequest @relation(fields: [handoffRequestId], references: [id], onDelete: Cascade)
+  message         Message       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([handoffRequestId, idempotencyKey])
+  @@index([operatorId, createdAt])
 }

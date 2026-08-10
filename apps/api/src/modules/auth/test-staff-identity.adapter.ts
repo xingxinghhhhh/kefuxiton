@@ -6,6 +6,7 @@ const TEST_PERMISSIONS: StaffPermission[] = [
   'handoff:read',
   'handoff:claim',
   'handoff:close',
+  'handoff:reply',
   'conversation:read',
 ];
 
