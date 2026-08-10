@@ -4,6 +4,8 @@ import type {
   HandoffActionResponse,
   HandoffRequestResponse,
   HandoffRequestStatus as ContractHandoffRequestStatus,
+  InternalTag,
+  StaffInternalContextResponse,
   MessageSenderType,
   ResponseType,
   StaffHandoffListResponse,
@@ -221,6 +223,115 @@ export class HandoffService {
       await this.prisma.$transaction((tx) => this.recordReplyAudit(tx, current, principal, existing.id, existing.message.id, correlationId, true));
       return this.toReplyResponse(requestId, existing.id, existing.message, true);
     }
+  }
+
+  async getInternalContext(requestId: string, principal: StaffPrincipal): Promise<StaffInternalContextResponse> {
+    const request = await this.requireClaimedOwner(requestId, principal);
+    const [notes, tags] = await Promise.all([
+      this.prisma.internalNote.findMany({ where: { handoffRequestId: request.id }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.conversationTag.findMany({ where: { handoffRequestId: request.id, active: true }, orderBy: { tag: 'asc' } }),
+    ]);
+    return {
+      requestId: request.id,
+      conversationId: request.conversationId,
+      notes: notes.map((note) => ({ id: note.id, content: note.content, operatorId: note.operatorId, createdAt: note.createdAt.toISOString() })),
+      tags: tags.map((tag) => ({ tag: tag.tag as InternalTag, operatorId: tag.operatorId, createdAt: tag.createdAt.toISOString() })),
+    };
+  }
+
+  async addInternalNote(requestId: string, principal: StaffPrincipal, content: string, idempotencyKey: string, correlationId: string) {
+    const request = await this.requireClaimedOwner(requestId, principal);
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.internalNote.findUnique({
+          where: { handoffRequestId_idempotencyKey: { handoffRequestId: request.id, idempotencyKey } },
+        });
+        if (existing) {
+          await this.recordInternalAudit(tx, request, principal, 'internal_note_replayed', 'replayed', correlationId, { noteId: existing.id });
+          return { requestId: request.id, note: this.toInternalNote(existing), idempotent: true };
+        }
+        const note = await tx.internalNote.create({
+          data: { conversationId: request.conversationId, handoffRequestId: request.id, operatorId: principal.staffId, content, idempotencyKey },
+        });
+        await this.recordInternalAudit(tx, request, principal, 'internal_note_created', 'created', correlationId, { noteId: note.id });
+        return { requestId: request.id, note: this.toInternalNote(note), idempotent: false };
+      });
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
+      const existing = await this.prisma.internalNote.findUnique({
+        where: { handoffRequestId_idempotencyKey: { handoffRequestId: request.id, idempotencyKey } },
+      });
+      if (!existing) throw error;
+      await this.prisma.$transaction((tx) => this.recordInternalAudit(tx, request, principal, 'internal_note_replayed', 'replayed', correlationId, { noteId: existing.id }));
+      return { requestId: request.id, note: this.toInternalNote(existing), idempotent: true };
+    }
+  }
+
+  async addInternalTag(requestId: string, principal: StaffPrincipal, tag: InternalTag, operationKey: string, correlationId: string): Promise<{ requestId: string; tag: InternalTag; active: boolean; idempotent: boolean }> {
+    const request = await this.requireClaimedOwner(requestId, principal);
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.conversationTag.findUnique({ where: { handoffRequestId_tag: { handoffRequestId: request.id, tag } } });
+        if (existing?.active && existing.operationKey === operationKey) {
+          await this.recordInternalAudit(tx, request, principal, 'conversation_tag_add_replayed', 'replayed', correlationId, { tag });
+          return { requestId: request.id, tag, active: true, idempotent: true };
+        }
+        const current = existing
+          ? await tx.conversationTag.update({ where: { id: existing.id }, data: { active: true, operatorId: principal.staffId, operationKey, removedAt: null } })
+          : await tx.conversationTag.create({ data: { conversationId: request.conversationId, handoffRequestId: request.id, tag, operatorId: principal.staffId, operationKey } });
+        await this.recordInternalAudit(tx, request, principal, 'conversation_tag_added', 'created', correlationId, { tag });
+        return { requestId: request.id, tag: current.tag as InternalTag, active: true, idempotent: false };
+      });
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
+      return this.addInternalTag(requestId, principal, tag, operationKey, correlationId);
+    }
+  }
+
+  async removeInternalTag(requestId: string, principal: StaffPrincipal, tag: InternalTag, operationKey: string, correlationId: string) {
+    const request = await this.requireClaimedOwner(requestId, principal);
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.conversationTag.findUnique({ where: { handoffRequestId_tag: { handoffRequestId: request.id, tag } } });
+      if (!existing || (!existing.active && existing.operationKey === operationKey)) {
+        await this.recordInternalAudit(tx, request, principal, 'conversation_tag_remove_replayed', 'replayed', correlationId, { tag });
+        return { requestId: request.id, tag, active: false, idempotent: true };
+      }
+      await tx.conversationTag.update({ where: { id: existing.id }, data: { active: false, operationKey, removedAt: new Date(), operatorId: principal.staffId } });
+      await this.recordInternalAudit(tx, request, principal, 'conversation_tag_removed', 'removed', correlationId, { tag });
+      return { requestId: request.id, tag, active: false, idempotent: false };
+    });
+  }
+
+  private async requireClaimedOwner(requestId: string, principal: StaffPrincipal) {
+    const request = await this.prisma.handoffRequest.findUnique({ where: { id: requestId } });
+    if (!request) throw new NotFoundException('handoff request not found');
+    if (request.status !== HandoffRequestStatus.claimed) throw new ConflictException('handoff must be claimed for internal context');
+    if (request.claimedBy !== principal.staffId) throw new ForbiddenException('only the claiming Operator can access internal context');
+    return request;
+  }
+
+  private recordInternalAudit(
+    tx: Prisma.TransactionClient,
+    request: { id: string; conversationId: string },
+    principal: StaffPrincipal,
+    action: 'internal_note_created' | 'internal_note_replayed' | 'conversation_tag_added' | 'conversation_tag_add_replayed' | 'conversation_tag_removed' | 'conversation_tag_remove_replayed',
+    outcome: 'created' | 'replayed' | 'removed',
+    correlationId: string,
+    metadata: Record<string, string>,
+  ) {
+    return this.audit.record(tx, {
+      conversationId: request.conversationId,
+      handoffRequestId: request.id,
+      actorType: 'staff',
+      actorId: principal.staffId,
+      action,
+      outcome,
+      metadata: { requestId: correlationId, ...metadata },
+    });
+  }
+
+  private toInternalNote(note: { id: string; content: string; operatorId: string; createdAt: Date }) {
+    return { id: note.id, content: note.content, operatorId: note.operatorId, createdAt: note.createdAt.toISOString() };
   }
 
   private async authorizeConversation(

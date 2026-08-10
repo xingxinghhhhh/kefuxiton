@@ -13,7 +13,7 @@
     "test:integration": "pnpm --filter @ai-agent/api test:integration",
     "test:api-smoke": "node tests/smoke/api-production.mjs",
     "test:e2e": "node scripts/run-isolated-e2e.mjs",
-    "test:eval": "node tests/evals/run-n2-eval.mjs && node tests/evals/run-n4-eval.mjs && node tests/evals/run-n5-eval.mjs",
+    "test:eval": "node tests/evals/run-n2-eval.mjs && node tests/evals/run-n4-eval.mjs && node tests/evals/run-n5-eval.mjs && node tests/evals/run-n6-eval.mjs",
     "db:migrate": "pnpm --filter @ai-agent/api db:migrate",
     "verify": "node scripts/verify-project.mjs",
     "verify:project": "node scripts/verify-project.mjs"

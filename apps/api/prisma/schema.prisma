@@ -40,6 +40,8 @@ model Conversation {
   messages        Message[]
   handoffRequests HandoffRequest[]
   auditEvents     AuditEvent[]
+  internalNotes   InternalNote[]
+  conversationTags ConversationTag[]
 }
 
 model HandoffRequest {
@@ -56,6 +58,8 @@ model HandoffRequest {
   conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   auditEvents    AuditEvent[]
   operatorReplies OperatorReply[]
+  internalNotes  InternalNote[]
+  conversationTags ConversationTag[]
 
   @@index([conversationId, status, requestedAt])
 }
@@ -155,4 +159,39 @@ model OperatorReply {
 
   @@unique([handoffRequestId, idempotencyKey])
   @@index([operatorId, createdAt])
+}
+
+model InternalNote {
+  id              String        @id @default(uuid()) @db.Uuid
+  conversationId  String        @db.Uuid
+  handoffRequestId String       @db.Uuid
+  operatorId      String        @db.VarChar(255)
+  content         String        @db.VarChar(2000)
+  idempotencyKey  String        @db.VarChar(128)
+  createdAt       DateTime      @default(now())
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  handoffRequest  HandoffRequest @relation(fields: [handoffRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([handoffRequestId, idempotencyKey])
+  @@index([conversationId, createdAt])
+  @@index([handoffRequestId, createdAt])
+}
+
+model ConversationTag {
+  id              String        @id @default(uuid()) @db.Uuid
+  conversationId  String        @db.Uuid
+  handoffRequestId String       @db.Uuid
+  tag             String        @db.VarChar(32)
+  operatorId      String        @db.VarChar(255)
+  operationKey    String        @db.VarChar(128)
+  active          Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  removedAt       DateTime?
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  handoffRequest  HandoffRequest @relation(fields: [handoffRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([handoffRequestId, tag])
+  @@index([conversationId, active, tag])
+  @@index([handoffRequestId, active])
 }

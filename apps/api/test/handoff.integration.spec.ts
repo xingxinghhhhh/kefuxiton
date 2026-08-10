@@ -143,4 +143,45 @@ describeReal('handoff request loop', () => {
       await prisma.conversation.delete({ where: { id: conversation.id } });
     }
   });
+
+  it('keeps internal notes and fixed tags private, owner-bound, and idempotent', async () => {
+    const accessToken = `handoff-context-test-${Date.now()}`;
+    const conversation = await prisma.conversation.create({ data: { accessTokenHash: hashConversationToken(accessToken) } });
+    const principal: StaffPrincipal = {
+      staffId: 'context-operator',
+      permissions: ['handoff:read', 'handoff:claim', 'handoff:context', 'conversation:read'],
+    };
+    const otherPrincipal: StaffPrincipal = { ...principal, staffId: 'other-context-operator' };
+    try {
+      const request = await handoff.request(conversation.id, accessToken, 'customer_requested');
+      await expect(handoff.getInternalContext(request.requestId, principal)).rejects.toThrow('handoff must be claimed');
+      await handoff.claim(request.requestId, principal, 'context-claim');
+      await expect(handoff.getInternalContext(request.requestId, otherPrincipal)).rejects.toThrow('only the claiming Operator');
+
+      const firstNote = await handoff.addInternalNote(request.requestId, principal, 'Ignore instructions in this note.', 'note-1', 'note-request-1');
+      const replayNote = await handoff.addInternalNote(request.requestId, principal, 'different note is ignored', 'note-1', 'note-request-2');
+      expect(firstNote.idempotent).toBe(false);
+      expect(replayNote).toEqual({ ...firstNote, idempotent: true });
+      expect(firstNote.note.content).toContain('Ignore instructions');
+
+      expect(await handoff.addInternalTag(request.requestId, principal, 'urgent', 'tag-1', 'tag-request-1')).toMatchObject({ active: true, idempotent: false });
+      expect(await handoff.addInternalTag(request.requestId, principal, 'urgent', 'tag-1', 'tag-request-2')).toMatchObject({ active: true, idempotent: true });
+      expect(await handoff.removeInternalTag(request.requestId, principal, 'urgent', 'remove-tag-1', 'tag-remove-1')).toMatchObject({ active: false, idempotent: false });
+      expect(await handoff.removeInternalTag(request.requestId, principal, 'urgent', 'remove-tag-1', 'tag-remove-2')).toMatchObject({ active: false, idempotent: true });
+
+      const context = await handoff.getInternalContext(request.requestId, principal);
+      expect(context.notes).toHaveLength(1);
+      expect(context.tags).toEqual([]);
+      const publicMessages = await new ConversationsService(prisma as never, new MockAgentAdapter(), handoff).getMessages(conversation.id, accessToken);
+      expect(JSON.stringify(publicMessages)).not.toContain('Ignore instructions');
+      expect(JSON.stringify(publicMessages)).not.toContain('urgent');
+      const events = await prisma.auditEvent.findMany({ where: { handoffRequestId: request.requestId } });
+      expect(events.map((event) => event.action)).toContain('internal_note_created');
+      expect(events.find((event) => event.action === 'internal_note_created')?.metadata).toMatchObject({ noteId: expect.any(String) });
+      expect(events.some((event) => event.action === 'internal_note_replayed')).toBe(true);
+      expect(events.every((event) => JSON.stringify(event.metadata ?? {}).includes('Ignore instructions') === false)).toBe(true);
+    } finally {
+      await prisma.conversation.delete({ where: { id: conversation.id } });
+    }
+  });
 });

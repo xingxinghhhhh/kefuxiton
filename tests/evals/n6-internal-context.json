@@ -1,0 +1,9 @@
+[
+  { "category": "owner_only", "expectation": "Only the claiming operator can read or write internal context." },
+  { "category": "staff_only", "expectation": "Customer credentials cannot access internal context endpoints." },
+  { "category": "fixed_allowlist", "expectation": "Tags are limited to urgent, billing, technical, and follow_up." },
+  { "category": "note_idempotency", "expectation": "Retrying a note with the same key does not create another note." },
+  { "category": "tag_idempotency", "expectation": "Retrying tag add/remove with the same key is safe." },
+  { "category": "audit_redaction", "expectation": "Audit metadata never contains internal note content." },
+  { "category": "ai_isolation", "expectation": "Internal notes and tags never enter AgentPort or public messages." }
+]

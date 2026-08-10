@@ -1,11 +1,12 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import type { HandoffRequestStatus, StaffHandoffRequest } from '@ai-agent/contracts';
-import { claimStaffHandoff, closeStaffHandoff, listStaffHandoffs, sendStaffReply } from '../../lib/api-client';
+import type { HandoffRequestStatus, InternalTag, StaffHandoffRequest, StaffInternalContextResponse } from '@ai-agent/contracts';
+import { addStaffInternalNote, addStaffInternalTag, claimStaffHandoff, closeStaffHandoff, getStaffInternalContext, listStaffHandoffs, removeStaffInternalTag, sendStaffReply } from '../../lib/api-client';
 
 type DraftMap = Record<string, string>;
 type KeyMap = Record<string, string>;
+type ContextMap = Record<string, StaffInternalContextResponse>;
 
 function createIdempotencyKey() {
   return globalThis.crypto?.randomUUID?.() ?? `reply-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -18,6 +19,9 @@ export function StaffHandoffShell() {
   const [replyDrafts, setReplyDrafts] = useState<DraftMap>({});
   const [replyKeys, setReplyKeys] = useState<KeyMap>({});
   const [sendingReply, setSendingReply] = useState<string | null>(null);
+  const [contexts, setContexts] = useState<ContextMap>({});
+  const [noteDrafts, setNoteDrafts] = useState<DraftMap>({});
+  const [tagDrafts, setTagDrafts] = useState<Record<string, InternalTag>>({});
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [error, setError] = useState('');
 
@@ -28,6 +32,10 @@ export function StaffHandoffShell() {
     try {
       const result = await listStaffHandoffs(staffToken.trim(), statusToLoad);
       setItems(result.items);
+      if (statusToLoad === 'claimed') {
+        const loaded = await Promise.all(result.items.map(async (item) => [item.requestId, await getStaffInternalContext(staffToken.trim(), item.requestId)] as const));
+        setContexts(Object.fromEntries(loaded));
+      }
       setStatus('ready');
     } catch {
       setError('无法访问客服队列，请确认 Staff 身份或服务配置。');
@@ -69,6 +77,29 @@ export function StaffHandoffShell() {
       setError('人工回复发送失败，内容已保留，请重试。');
     } finally {
       setSendingReply(null);
+    }
+  }
+
+  async function submitNote(event: FormEvent<HTMLFormElement>, request: StaffHandoffRequest) {
+    event.preventDefault();
+    const content = (noteDrafts[request.requestId] ?? '').trim();
+    if (!content) return;
+    try {
+      await addStaffInternalNote(staffToken.trim(), request.requestId, content, createIdempotencyKey());
+      setNoteDrafts((current) => ({ ...current, [request.requestId]: '' }));
+      await loadQueue('claimed');
+    } catch {
+      setError('Internal note failed; content was kept for retry.');
+    }
+  }
+
+  async function updateTag(request: StaffHandoffRequest, tag: InternalTag, active: boolean) {
+    try {
+      if (active) await addStaffInternalTag(staffToken.trim(), request.requestId, tag, createIdempotencyKey());
+      else await removeStaffInternalTag(staffToken.trim(), request.requestId, tag, createIdempotencyKey());
+      await loadQueue('claimed');
+    } catch {
+      setError('Internal tag update failed; refresh and retry.');
     }
   }
 
@@ -129,6 +160,22 @@ export function StaffHandoffShell() {
               )}
               {request.status === 'claimed' && (
                 <>
+                  <section aria-label="Internal context">
+                    <h2>Internal context</h2>
+                    <p>Tags: {(contexts[request.requestId]?.tags ?? []).map((item) => item.tag).join(', ') || 'none'}</p>
+                    <ul>{(contexts[request.requestId]?.notes ?? []).map((note) => <li key={note.id}>{note.content}</li>)}</ul>
+                    <form className="composer" onSubmit={(event) => void submitNote(event, request)}>
+                      <label htmlFor={`note-${request.requestId}`}>Internal note</label>
+                      <textarea id={`note-${request.requestId}`} value={noteDrafts[request.requestId] ?? ''} onChange={(event) => setNoteDrafts((current) => ({ ...current, [request.requestId]: event.target.value }))} maxLength={2000} rows={2} />
+                      <button type="submit" disabled={!noteDrafts[request.requestId]?.trim()}>Add note</button>
+                    </form>
+                    <label htmlFor={`tag-${request.requestId}`}>Fixed tag</label>
+                    <select id={`tag-${request.requestId}`} value={tagDrafts[request.requestId] ?? 'urgent'} onChange={(event) => setTagDrafts((current) => ({ ...current, [request.requestId]: event.target.value as InternalTag }))}>
+                      <option value="urgent">urgent</option><option value="billing">billing</option><option value="technical">technical</option><option value="follow_up">follow_up</option>
+                    </select>
+                    <button type="button" onClick={() => void updateTag(request, tagDrafts[request.requestId] ?? 'urgent', true)}>Add tag</button>
+                    <button type="button" onClick={() => void updateTag(request, tagDrafts[request.requestId] ?? 'urgent', false)}>Remove tag</button>
+                  </section>
                   <form className="composer" onSubmit={(event) => void submitReply(event, request)}>
                     <label htmlFor={`reply-${request.requestId}`}>人工回复</label>
                     <textarea

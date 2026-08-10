@@ -4,7 +4,8 @@ export type AgentMode = 'mock' | 'deterministic_knowledge' | 'handoff' | 'human_
 export type ResponseType = 'safe_unavailable' | 'knowledge_answer' | 'handoff_recommended' | 'handoff_requested' | 'handoff_pending' | 'human_reply' | 'mock_fallback';
 export type HandoffRequestStatus = 'requested' | 'claimed' | 'closed';
 export type MessageSenderType = 'customer' | 'ai' | 'human_operator' | 'system';
-export type StaffPermission = 'handoff:read' | 'handoff:claim' | 'handoff:close' | 'handoff:reply' | 'conversation:read';
+export type StaffPermission = 'handoff:read' | 'handoff:claim' | 'handoff:close' | 'handoff:reply' | 'handoff:context' | 'conversation:read';
+export type InternalTag = 'urgent' | 'billing' | 'technical' | 'follow_up';
 
 export interface Citation {
   id: string;
@@ -80,6 +81,26 @@ export interface StaffReplyResponse {
   replyId: string;
   message: MessageView;
   idempotent: boolean;
+}
+
+export interface InternalNoteView {
+  id: string;
+  content: string;
+  operatorId: string;
+  createdAt: string;
+}
+
+export interface ConversationTagView {
+  tag: InternalTag;
+  operatorId: string;
+  createdAt: string;
+}
+
+export interface StaffInternalContextResponse {
+  requestId: string;
+  conversationId: string;
+  notes: InternalNoteView[];
+  tags: ConversationTagView[];
 }
 
 export interface StaffHandoffMessage {

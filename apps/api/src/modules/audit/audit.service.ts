@@ -14,8 +14,14 @@ export interface AuditRecordInput {
     | 'handoff_closed'
     | 'handoff_close_replayed'
     | 'operator_reply_created'
-    | 'operator_reply_replayed';
-  outcome: 'created' | 'replayed' | 'claimed' | 'closed';
+    | 'operator_reply_replayed'
+    | 'internal_note_created'
+    | 'internal_note_replayed'
+    | 'conversation_tag_added'
+    | 'conversation_tag_add_replayed'
+    | 'conversation_tag_removed'
+    | 'conversation_tag_remove_replayed';
+  outcome: 'created' | 'replayed' | 'claimed' | 'closed' | 'removed';
   metadata?: Record<string, string>;
 }
 

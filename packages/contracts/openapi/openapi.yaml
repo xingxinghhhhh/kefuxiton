@@ -250,6 +250,111 @@ paths:
           description: Insufficient staff permission or not the claiming operator
         '409':
           description: Handoff is not claimed
+  /staff/handoff-requests/{requestId}/internal-context:
+    get:
+      operationId: getStaffInternalContext
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Internal-only notes and fixed tags for the claiming operator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffInternalContextResponse' }
+        '401': { description: Missing or invalid staff identity }
+        '403': { description: Insufficient permission or non-owner operator }
+        '409': { description: Handoff is not claimed }
+  /staff/handoff-requests/{requestId}/notes:
+    post:
+      operationId: createStaffInternalNote
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InternalNoteRequest' }
+      responses:
+        '201':
+          description: Internal-only note, idempotently
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InternalNoteResponse' }
+        '400': { description: Invalid note or idempotency key }
+        '401': { description: Missing or invalid staff identity }
+        '403': { description: Insufficient permission or non-owner operator }
+        '409': { description: Handoff is not claimed }
+  /staff/handoff-requests/{requestId}/tags:
+    post:
+      operationId: addStaffInternalTag
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InternalTagRequest' }
+      responses:
+        '201': { description: Fixed internal tag, idempotently }
+        '400': { description: Invalid tag or idempotency key }
+        '401': { description: Missing or invalid staff identity }
+        '403': { description: Insufficient permission or non-owner operator }
+        '409': { description: Handoff is not claimed }
+  /staff/handoff-requests/{requestId}/tags/{tag}:
+    delete:
+      operationId: removeStaffInternalTag
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: tag
+          required: true
+          schema: { type: string, enum: [urgent, billing, technical, follow_up] }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        '200': { description: Fixed internal tag removal, idempotently }
+        '400': { description: Invalid tag or idempotency key }
+        '401': { description: Missing or invalid staff identity }
+        '403': { description: Insufficient permission or non-owner operator }
+        '409': { description: Handoff is not claimed }
 components:
   schemas:
     CreateConversationResponse:
@@ -320,6 +425,47 @@ components:
         replyId: { type: string, format: uuid }
         message: { $ref: '#/components/schemas/MessageView' }
         idempotent: { type: boolean }
+    InternalNoteRequest:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 2000 }
+    InternalNoteResponse:
+      type: object
+      required: [requestId, note, idempotent]
+      properties:
+        requestId: { type: string, format: uuid }
+        note: { $ref: '#/components/schemas/InternalNote' }
+        idempotent: { type: boolean }
+    InternalNote:
+      type: object
+      required: [id, content, operatorId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        content: { type: string }
+        operatorId: { type: string }
+        createdAt: { type: string, format: date-time }
+    InternalTagRequest:
+      type: object
+      required: [tag]
+      properties:
+        tag: { type: string, enum: [urgent, billing, technical, follow_up] }
+    StaffInternalContextResponse:
+      type: object
+      required: [requestId, conversationId, notes, tags]
+      properties:
+        requestId: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        notes: { type: array, items: { $ref: '#/components/schemas/InternalNote' } }
+        tags:
+          type: array
+          items:
+            type: object
+            required: [tag, operatorId, createdAt]
+            properties:
+              tag: { type: string, enum: [urgent, billing, technical, follow_up] }
+              operatorId: { type: string }
+              createdAt: { type: string, format: date-time }
     HandoffRequestResponse:
       type: object
       required: [conversationId, requestId, status, reasonCode, requestedAt, updatedAt, idempotent]

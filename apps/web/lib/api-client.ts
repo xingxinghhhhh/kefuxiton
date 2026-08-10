@@ -6,6 +6,8 @@ import type {
   HandoffRequestStatus,
   ConversationMessagesResponse,
   StaffReplyResponse,
+  StaffInternalContextResponse,
+  InternalTag,
   StaffHandoffListResponse,
   SendMessageRequest,
   SendMessageResponse,
@@ -84,5 +86,34 @@ export function sendStaffReply(staffToken: string, requestId: string, content: s
     method: 'POST',
     headers: { authorization: `Staff ${staffToken}`, 'x-idempotency-key': idempotencyKey },
     body: JSON.stringify({ content, idempotencyKey }),
+  });
+}
+
+export function getStaffInternalContext(staffToken: string, requestId: string) {
+  return request<StaffInternalContextResponse>(`/staff/handoff-requests/${requestId}/internal-context`, {
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+}
+
+export function addStaffInternalNote(staffToken: string, requestId: string, content: string, idempotencyKey: string) {
+  return request<{ requestId: string; note: StaffInternalContextResponse['notes'][number]; idempotent: boolean }>(`/staff/handoff-requests/${requestId}/notes`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}`, 'x-idempotency-key': idempotencyKey },
+    body: JSON.stringify({ content }),
+  });
+}
+
+export function addStaffInternalTag(staffToken: string, requestId: string, tag: InternalTag, idempotencyKey: string) {
+  return request<{ requestId: string; tag: InternalTag; active: boolean; idempotent: boolean }>(`/staff/handoff-requests/${requestId}/tags`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}`, 'x-idempotency-key': idempotencyKey },
+    body: JSON.stringify({ tag }),
+  });
+}
+
+export function removeStaffInternalTag(staffToken: string, requestId: string, tag: InternalTag, idempotencyKey: string) {
+  return request<{ requestId: string; tag: InternalTag; active: boolean; idempotent: boolean }>(`/staff/handoff-requests/${requestId}/tags/${tag}`, {
+    method: 'DELETE',
+    headers: { authorization: `Staff ${staffToken}`, 'x-idempotency-key': idempotencyKey },
   });
 }

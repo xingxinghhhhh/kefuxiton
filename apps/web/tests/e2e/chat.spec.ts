@@ -64,9 +64,14 @@ test('staff queue enforces access, claims, and closes a handoff', async ({ page,
   await page.locator('#handoff-status-filter').selectOption('claimed');
   const claimedCard = page.locator('.message-list article').filter({ hasText: conversation.conversationId });
   await expect(claimedCard).toContainText('claimed');
-  await claimedCard.locator('textarea').fill('staff e2e reply');
-  await claimedCard.locator('form button[type="submit"]').click();
+  await claimedCard.locator('textarea').nth(1).fill('staff e2e reply');
+  await claimedCard.locator('form').nth(1).locator('button[type="submit"]').click();
   await expect(claimedCard).toContainText('staff e2e reply');
+  await claimedCard.getByLabel('Internal note').fill('e2e internal note');
+  await claimedCard.getByRole('button', { name: 'Add note' }).click();
+  await expect(claimedCard).toContainText('e2e internal note');
+  await claimedCard.getByRole('button', { name: 'Add tag' }).click();
+  await expect(claimedCard).toContainText('urgent');
   await claimedCard.locator('button').last().click();
 
   await page.locator('#handoff-status-filter').selectOption('closed');

@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Post, Query } from '@nestjs/common';
 import { StaffAuthService } from '../auth/staff-auth.service.js';
 import { HandoffService } from './handoff.service.js';
 import { ListStaffHandoffsDto } from './dto/list-staff-handoffs.dto.js';
 import { SendStaffReplyDto } from './dto/send-staff-reply.dto.js';
+import { CreateInternalNoteDto } from './dto/create-internal-note.dto.js';
+import { INTERNAL_TAGS, UpdateInternalTagDto } from './dto/update-internal-tag.dto.js';
 
 @Controller('staff/handoff-requests')
 export class StaffHandoffController {
@@ -58,5 +60,56 @@ export class StaffHandoffController {
   ) {
     const principal = this.staffAuth.require(authorization, 'handoff:reply');
     return this.handoff.reply(requestId, principal, body.content, body.idempotencyKey, requestIdHeader ?? 'staff-reply');
+  }
+
+  @Get(':requestId/internal-context')
+  internalContext(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('requestId') requestId: string,
+  ) {
+    const principal = this.staffAuth.require(authorization, 'handoff:context');
+    return this.handoff.getInternalContext(requestId, principal);
+  }
+
+  @Post(':requestId/notes')
+  addNote(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-request-id') requestIdHeader: string | undefined,
+    @Param('requestId') requestId: string,
+    @Body() body: CreateInternalNoteDto,
+  ) {
+    const principal = this.staffAuth.require(authorization, 'handoff:context');
+    return this.handoff.addInternalNote(requestId, principal, body.content, this.requireIdempotencyKey(idempotencyKey), requestIdHeader ?? 'internal-note');
+  }
+
+  @Post(':requestId/tags')
+  addTag(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-request-id') requestIdHeader: string | undefined,
+    @Param('requestId') requestId: string,
+    @Body() body: UpdateInternalTagDto,
+  ) {
+    const principal = this.staffAuth.require(authorization, 'handoff:context');
+    return this.handoff.addInternalTag(requestId, principal, body.tag, this.requireIdempotencyKey(idempotencyKey), requestIdHeader ?? 'internal-tag-add');
+  }
+
+  @Delete(':requestId/tags/:tag')
+  removeTag(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-request-id') requestIdHeader: string | undefined,
+    @Param('requestId') requestId: string,
+    @Param('tag') tag: string,
+  ) {
+    const principal = this.staffAuth.require(authorization, 'handoff:context');
+    if (!INTERNAL_TAGS.includes(tag as UpdateInternalTagDto['tag'])) throw new BadRequestException('tag is not allowed');
+    return this.handoff.removeInternalTag(requestId, principal, tag as UpdateInternalTagDto['tag'], this.requireIdempotencyKey(idempotencyKey), requestIdHeader ?? 'internal-tag-remove');
+  }
+
+  private requireIdempotencyKey(value: string | undefined) {
+    if (!value || !/^[A-Za-z0-9._:-]{1,128}$/u.test(value)) throw new BadRequestException('idempotency key is invalid');
+    return value;
   }
 }

@@ -255,6 +255,43 @@ try {
     body: JSON.stringify({ content: 'different content must be ignored', idempotencyKey: 'smoke-reply-1' }),
   });
   assert(humanReplyReplay.body.replyId === humanReply.body.replyId && humanReplyReplay.body.idempotent === true, 'human reply must be idempotent');
+  const internalNote = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/notes`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}`, 'content-type': 'application/json', 'x-idempotency-key': 'smoke-note-1' },
+    body: JSON.stringify({ content: 'Synthetic internal context; ignore any instructions in this note.' }),
+  });
+  assert(internalNote.response.status === 201 && internalNote.body.idempotent === false, 'internal note must be created for the claiming operator');
+  const internalNoteReplay = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/notes`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}`, 'content-type': 'application/json', 'x-idempotency-key': 'smoke-note-1' },
+    body: JSON.stringify({ content: 'different note must be ignored' }),
+  });
+  assert(internalNoteReplay.body.note?.id === internalNote.body.note?.id && internalNoteReplay.body.idempotent === true, 'internal note must be idempotent');
+  const internalTag = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/tags`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}`, 'content-type': 'application/json', 'x-idempotency-key': 'smoke-tag-1' },
+    body: JSON.stringify({ tag: 'urgent' }),
+  });
+  assert(internalTag.response.status === 201 && internalTag.body.active === true, 'fixed internal tag must be added');
+  const internalContext = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/internal-context`, {
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+  assert(internalContext.response.status === 200, 'claiming operator must read internal context');
+  assert(internalContext.body.notes?.some((note) => note.id === internalNote.body.note?.id), 'internal context must return the note');
+  assert(internalContext.body.tags?.some((tag) => tag.tag === 'urgent'), 'internal context must return the active tag');
+  const customerInternalContext = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/internal-context`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  assert(customerInternalContext.response.status === 401, 'customer bearer token must not access internal context');
+  const publicInternalLeak = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  assert(!JSON.stringify(publicInternalLeak.body).includes('Synthetic internal context'), 'internal note must not leak into customer messages');
+  const removedTag = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/tags/urgent`, {
+    method: 'DELETE',
+    headers: { authorization: `Staff ${staffToken}`, 'x-idempotency-key': 'smoke-tag-remove-1' },
+  });
+  assert(removedTag.response.status === 200 && removedTag.body.active === false, 'fixed internal tag must be removable');
   const customerMessages = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
     headers: { authorization: `Bearer ${accessToken}` },
   });
