@@ -1,12 +1,15 @@
 export type ConversationStatus = 'active' | 'closed';
 export type MessageRole = 'user' | 'agent';
-export type AgentMode = 'mock';
-export type ResponseType = 'safe_unavailable';
+export type AgentMode = 'mock' | 'deterministic_knowledge';
+export type ResponseType = 'safe_unavailable' | 'knowledge_answer' | 'handoff_recommended' | 'mock_fallback';
 
 export interface Citation {
   id: string;
   title: string;
   uri: string;
+  version?: string;
+  locator?: string;
+  contentSha256?: string;
 }
 
 export interface ConversationSummary {
@@ -39,6 +42,7 @@ export interface SendMessageResponse {
   agentMode: AgentMode;
   responseType: ResponseType;
   citations: Citation[];
+  handoffRecommended: boolean;
 }
 
 export interface ApiErrorResponse {

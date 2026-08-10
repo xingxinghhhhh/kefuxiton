@@ -45,7 +45,7 @@ paths:
               $ref: '#/components/schemas/SendMessageRequest'
       responses:
         '201':
-          description: Persisted user message and deterministic mock response
+          description: Persisted user message and deterministic knowledge or safe fallback response
         '400':
           description: Invalid message
         '401':
@@ -65,3 +65,23 @@ components:
       required: [content]
       properties:
         content: { type: string, minLength: 1, maxLength: 2000 }
+    Citation:
+      type: object
+      required: [id, title, uri]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        uri: { type: string }
+        version: { type: string }
+        locator: { type: string }
+        contentSha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+    SendMessageResponse:
+      type: object
+      required: [conversationId, messages, agentMode, responseType, citations, handoffRecommended]
+      properties:
+        conversationId: { type: string, format: uuid }
+        messages: { type: array, items: { type: object } }
+        agentMode: { type: string, enum: [mock, deterministic_knowledge] }
+        responseType: { type: string, enum: [safe_unavailable, knowledge_answer, handoff_recommended, mock_fallback] }
+        citations: { type: array, items: { $ref: '#/components/schemas/Citation' } }
+        handoffRecommended: { type: boolean }

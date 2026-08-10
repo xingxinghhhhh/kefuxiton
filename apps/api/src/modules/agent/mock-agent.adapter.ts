@@ -9,6 +9,7 @@ export class MockAgentAdapter implements AgentPort {
       agentMode: 'mock',
       responseType: 'safe_unavailable',
       citations: [],
+      handoffRecommended: false,
     };
   }
 }

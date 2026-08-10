@@ -10,6 +10,7 @@ export function ChatShell() {
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'sending' | 'error'>('loading');
   const [error, setError] = useState('');
+  const [handoffRecommended, setHandoffRecommended] = useState(false);
 
   useEffect(() => {
     const stored = window.sessionStorage.getItem('ai-agent-conversation');
@@ -48,9 +49,11 @@ export function ChatShell() {
     if (!conversation || !trimmed || status === 'sending') return;
     setStatus('sending');
     setError('');
+    setHandoffRecommended(false);
     try {
       const result: SendMessageResponse = await sendMessage(conversation, trimmed);
       setMessages((current) => [...current, ...result.messages]);
+      setHandoffRecommended(result.handoffRecommended);
       setContent('');
       setStatus('ready');
     } catch {
@@ -83,10 +86,23 @@ export function ChatShell() {
               <span className="message-role">{message.role === 'user' ? '你' : '演示 Agent'}</span>
               <p>{message.content}</p>
               {message.responseType && <small>响应类型：{message.responseType}</small>}
+              {message.citations.length > 0 && (
+                <div aria-label="knowledge citations">
+                  <small>知识来源：</small>
+                  <ul>
+                    {message.citations.map((citation) => (
+                      <li key={citation.id}>
+                        {citation.title} · {citation.version ?? 'unknown'} · {citation.locator ?? citation.uri}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </article>
           ))}
         </div>
 
+        {handoffRecommended && <p role="status">建议转人工服务台处理。</p>}
         {error && <p className="error-message" role="alert">{error}</p>}
 
         <form className="composer" onSubmit={onSubmit}>

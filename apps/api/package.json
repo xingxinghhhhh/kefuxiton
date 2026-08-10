@@ -13,7 +13,8 @@
     "test:integration": "jest --runInBand --config jest.integration.config.cjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:validate": "prisma validate"
+    "db:validate": "prisma validate",
+    "knowledge:import": "node scripts/knowledge/import-markdown.mjs"
   },
   "dependencies": {
     "@ai-agent/contracts": "workspace:*",

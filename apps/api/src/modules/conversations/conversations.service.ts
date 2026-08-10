@@ -1,5 +1,6 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import type { AgentMode, ResponseType } from '@ai-agent/contracts';
 import type { AgentPort } from '../agent/agent.port.js';
 import { AGENT_PORT } from '../agent/agent.port.js';
 import { createConversationToken, hashConversationToken } from './conversation-token.js';
@@ -58,6 +59,7 @@ export class ConversationsService {
         agentMode: agentResult.agentMode,
         responseType: agentResult.responseType,
         citations: agentResult.citations,
+        handoffRecommended: agentResult.handoffRecommended,
       };
     });
   }
@@ -75,8 +77,8 @@ export class ConversationsService {
       id: message.id,
       role: message.role,
       content: message.content,
-      responseType: message.responseType as 'safe_unavailable' | null,
-      agentMode: message.agentMode as 'mock' | null,
+      responseType: message.responseType as ResponseType | null,
+      agentMode: message.agentMode as AgentMode | null,
       citations: Array.isArray(message.citations) ? message.citations : [],
       createdAt: message.createdAt.toISOString(),
     };

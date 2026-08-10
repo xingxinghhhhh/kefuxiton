@@ -17,6 +17,14 @@ enum MessageRole {
   agent
 }
 
+enum KnowledgeVersionStatus {
+  draft
+  published
+  superseded
+  expired
+  local_eval
+}
+
 model Conversation {
   id              String             @id @default(uuid()) @db.Uuid
   accessTokenHash String             @unique @db.VarChar(64)
@@ -24,6 +32,56 @@ model Conversation {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   messages        Message[]
+}
+
+model KnowledgeDocument {
+  id         String             @id @default(uuid()) @db.Uuid
+  sourceId   String             @unique @db.VarChar(255)
+  title      String             @db.VarChar(255)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  versions   KnowledgeVersion[]
+}
+
+model KnowledgeVersion {
+  id             String                 @id @default(uuid()) @db.Uuid
+  documentId     String                 @db.Uuid
+  version        String                 @db.VarChar(64)
+  status         KnowledgeVersionStatus
+  sourceRef      String?                @db.VarChar(500)
+  sourceStatus   String?                @db.VarChar(64)
+  contentSha256  String?                @db.VarChar(64)
+  effectiveAt    DateTime?
+  expiresAt      DateTime?
+  approvedBy     String?                @db.VarChar(255)
+  approvedAt     DateTime?
+  publishedAt    DateTime?
+  rawContent     String                 @db.Text
+  createdAt      DateTime               @default(now())
+  document       KnowledgeDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunks         KnowledgeChunk[]
+
+  @@unique([documentId, version])
+  @@index([status, effectiveAt, expiresAt])
+}
+
+model KnowledgeChunk {
+  id                String           @id @default(uuid()) @db.Uuid
+  knowledgeVersionId String          @db.Uuid
+  ordinal           Int
+  heading           String           @db.VarChar(255)
+  question          String           @db.Text
+  answer            String           @db.Text
+  conditions        String           @db.Text
+  exceptions        String           @db.Text
+  content           String           @db.Text
+  contentSha256     String           @db.VarChar(64)
+  sourceLocator     String           @db.VarChar(255)
+  createdAt         DateTime         @default(now())
+  knowledgeVersion  KnowledgeVersion @relation(fields: [knowledgeVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([knowledgeVersionId, ordinal])
+  @@index([knowledgeVersionId, ordinal])
 }
 
 model Message {

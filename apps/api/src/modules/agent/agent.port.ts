@@ -2,9 +2,10 @@ import type { Citation, ResponseType } from '@ai-agent/contracts';
 
 export interface AgentResult {
   content: string;
-  agentMode: 'mock';
+  agentMode: 'mock' | 'deterministic_knowledge';
   responseType: ResponseType;
   citations: Citation[];
+  handoffRecommended: boolean;
 }
 
 export interface AgentPort {
