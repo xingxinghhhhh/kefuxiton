@@ -13,3 +13,4 @@ export interface AgentPort {
 }
 
 export const AGENT_PORT = Symbol('AGENT_PORT');
+export const AGENT_CAPABILITY = Symbol('AGENT_CAPABILITY');

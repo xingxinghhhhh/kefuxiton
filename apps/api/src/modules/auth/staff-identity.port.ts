@@ -10,3 +10,4 @@ export interface StaffIdentityPort {
 }
 
 export const STAFF_IDENTITY_PORT = Symbol('STAFF_IDENTITY_PORT');
+export const STAFF_IDENTITY_CAPABILITY = Symbol('STAFF_IDENTITY_CAPABILITY');

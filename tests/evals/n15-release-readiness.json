@@ -1,0 +1,11 @@
+[
+  { "category": "three_runtime_modes", "expectation": "local_eval, rehearsal, and production have distinct readiness outcomes" },
+  { "category": "missing_business_input", "expectation": "production without a formal business package is blocked" },
+  { "category": "synthetic_knowledge_blocked", "expectation": "synthetic local knowledge cannot satisfy production readiness" },
+  { "category": "deterministic_agent_blocked", "expectation": "deterministic local Agent cannot satisfy production readiness" },
+  { "category": "staff_identity_blocked", "expectation": "deny or test Staff identity cannot satisfy production readiness" },
+  { "category": "mode_conflict", "expectation": "production and rehearsal markers cannot be mixed" },
+  { "category": "startup_gate", "expectation": "production API exits before Nest and database startup" },
+  { "category": "redacted_failure", "expectation": "readiness output contains no secret or local path" },
+  { "category": "stable_reason_order", "expectation": "multiple blockers use a deterministic order" }
+]

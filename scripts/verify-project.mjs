@@ -40,6 +40,12 @@ const requiredFiles = [
   'tests/evals/run-n14-eval.mjs',
   'docs/adr/0012-N14-synthetic-knowledge-fixture-contract.md',
   'docs/N14-acceptance.md',
+  'packages/config/src/release-readiness.ts',
+  'scripts/release-readiness.mjs',
+  'tests/evals/n15-release-readiness.json',
+  'tests/evals/run-n15-eval.mjs',
+  'docs/adr/0013-N15-production-readiness-and-rehearsal.md',
+  'docs/N15-acceptance.md',
   'docs/adr/0010-N12合成发布演练与回滚.md',
   'docs/N12验收记录.md',
 ];

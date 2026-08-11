@@ -20,8 +20,8 @@ for (const category of ['isolated_schema', 'single_migration', 'published_fixtur
 for (const value of ['release_rehearsal_', 'schema_create', 'migration', 'fixture_import', 'production_publish_guard', 'test_harness_api_smoke', 'test_harness_e2e', 'rollback_validation', 'CLEANUP_FAILED']) {
   assert(rehearsal.includes(value), `release rehearsal is missing ${value}`);
 }
-assert(rehearsal.includes('APP_ENV: \'production\'') && rehearsal.includes('STAFF_AUTH_MODE: \'deny\'') && rehearsal.includes('ALLOW_KNOWLEDGE_PUBLISH: \'0\''), 'production rehearsal must be deny-by-default');
-assert(rehearsal.includes('delete productionEnvironment.AI_AGENT_TEST_STAFF_TOKEN') && rehearsal.includes('delete productionEnvironment.AI_AGENT_TEST_STAFF_ID'), 'production rehearsal must remove test credentials');
+assert(rehearsal.includes('APP_ENV: \'rehearsal\'') && rehearsal.includes('STAFF_AUTH_MODE: \'deny\'') && rehearsal.includes('ALLOW_KNOWLEDGE_PUBLISH: \'1\''), 'rehearsal must be explicitly non-production and deny-by-default for Staff');
+assert(rehearsal.includes('delete rehearsalEnvironment.AI_AGENT_TEST_STAFF_TOKEN') && rehearsal.includes('delete rehearsalEnvironment.AI_AGENT_TEST_STAFF_ID'), 'rehearsal must remove test credentials');
 assert(rehearsal.includes('captureSummary') && rehearsal.includes('relationDigest') && !rehearsal.includes('rawContent'), 'rollback summary must be redacted');
 assert(rehearsal.includes(`baselineCommit = process.env.REHEARSAL_BASELINE_COMMIT ?? 'a4645ab'`) && rehearsal.includes("git', ['worktree', 'add', '--detach'"), 'rollback must pin and verify the N12 baseline in a detached worktree');
 assert(rehearsal.includes('baseline_worktree_cleanup') && rehearsal.includes('baseline_api_build') && rehearsal.includes('assertSummaryUnchanged(beforeRollback, afterRollback)'), 'baseline rollback must build, clean up, and compare the redacted digest');

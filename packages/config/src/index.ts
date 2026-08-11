@@ -1,4 +1,4 @@
-export type AppEnvironment = 'development' | 'test' | 'production';
+export type AppEnvironment = 'development' | 'test' | 'local_eval' | 'rehearsal' | 'production';
 export type StaffAuthMode = 'deny' | 'test';
 export type ConfigTarget = 'api' | 'web' | 'preflight';
 
@@ -98,7 +98,7 @@ function parseEnvironment(value: string | undefined, issues: ConfigIssue[], requ
     if (required) addIssue(issues, 'CONFIG_MISSING', 'APP_ENV');
     return 'development';
   }
-  if (value === 'development' || value === 'test' || value === 'production') return value;
+  if (value === 'development' || value === 'test' || value === 'local_eval' || value === 'rehearsal' || value === 'production') return value;
   addIssue(issues, 'CONFIG_INVALID', 'APP_ENV');
   return 'development';
 }
@@ -267,3 +267,4 @@ export function isKnowledgePublishAllowed(environment: Environment): boolean {
 
 export * from './business-readiness.js';
 export * from './knowledge-source.js';
+export * from './release-readiness.js';
