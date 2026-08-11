@@ -130,18 +130,19 @@ export class ConversationsService {
 
     const message = await this.prisma.message.findFirst({
       where: { id: messageId, conversationId },
-      select: { role: true, senderType: true, responseType: true },
+      select: { role: true, senderType: true, responseType: true, operatorReply: { select: { handoffRequestId: true } } },
     });
     if (!message || message.role !== 'agent' || (message.senderType !== 'ai' && message.senderType !== 'human_operator') || message.responseType === 'handoff_pending') {
       throw new ForbiddenException({ code: 'FEEDBACK_NOT_ALLOWED', message: '当前消息不允许反馈。' });
     }
+    const handoffRequestId = message.senderType === 'human_operator' ? message.operatorReply?.handoffRequestId ?? null : null;
 
     let operation: FeedbackOperation;
     try {
-      operation = await this.prisma.$transaction((tx) => this.recordOrResolveFeedback(tx, conversationId, messageId, value, idempotencyKey));
+      operation = await this.prisma.$transaction((tx) => this.recordOrResolveFeedback(tx, conversationId, messageId, value, idempotencyKey, handoffRequestId));
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
-      operation = await this.prisma.$transaction((tx) => this.resolveExistingFeedback(tx, conversationId, messageId, value, idempotencyKey));
+      operation = await this.prisma.$transaction((tx) => this.resolveExistingFeedback(tx, conversationId, messageId, value, idempotencyKey, handoffRequestId));
     }
 
     if (operation.kind === 'conflict') {
@@ -157,29 +158,30 @@ export class ConversationsService {
     messageId: string,
     value: FeedbackValue,
     idempotencyKey: string,
+    handoffRequestId: string | null,
   ): Promise<FeedbackOperation> {
     const existingByKey = await tx.messageFeedback.findUnique({ where: { conversationId_idempotencyKey: { conversationId, idempotencyKey } } });
     if (existingByKey) {
       if (existingByKey.messageId === messageId && existingByKey.value === value) {
-        await this.recordFeedbackAudit(tx, 'message_feedback_replayed', 'replayed', existingByKey.id, conversationId, messageId, value);
+        await this.recordFeedbackAudit(tx, 'message_feedback_replayed', 'replayed', existingByKey.id, conversationId, messageId, value, handoffRequestId);
         return { kind: 'success', feedbackId: existingByKey.id, conversationId, messageId, value, status: 'replayed', idempotent: true };
       }
-      await this.recordFeedbackAudit(tx, 'message_feedback_conflict', 'conflict', existingByKey.id, conversationId, messageId, value);
+      await this.recordFeedbackAudit(tx, 'message_feedback_conflict', 'conflict', existingByKey.id, conversationId, messageId, value, handoffRequestId);
       return { kind: 'conflict', code: 'IDEMPOTENCY_KEY_REUSED' };
     }
 
     const existingByMessage = await tx.messageFeedback.findUnique({ where: { conversationId_messageId: { conversationId, messageId } } });
     if (existingByMessage) {
       if (existingByMessage.value !== value) {
-        await this.recordFeedbackAudit(tx, 'message_feedback_conflict', 'conflict', existingByMessage.id, conversationId, messageId, value);
+        await this.recordFeedbackAudit(tx, 'message_feedback_conflict', 'conflict', existingByMessage.id, conversationId, messageId, value, handoffRequestId);
         return { kind: 'conflict', code: 'FEEDBACK_CONFLICT' };
       }
-      await this.recordFeedbackAudit(tx, 'message_feedback_replayed', 'replayed', existingByMessage.id, conversationId, messageId, value);
+      await this.recordFeedbackAudit(tx, 'message_feedback_replayed', 'replayed', existingByMessage.id, conversationId, messageId, value, handoffRequestId);
       return { kind: 'success', feedbackId: existingByMessage.id, conversationId, messageId, value, status: 'already_recorded', idempotent: true };
     }
 
     const created = await tx.messageFeedback.create({ data: { conversationId, messageId, value, idempotencyKey } });
-    await this.recordFeedbackAudit(tx, 'message_feedback_created', 'created', created.id, conversationId, messageId, value);
+    await this.recordFeedbackAudit(tx, 'message_feedback_created', 'created', created.id, conversationId, messageId, value, handoffRequestId);
     return { kind: 'success', feedbackId: created.id, conversationId, messageId, value, status: 'recorded', idempotent: false };
   }
 
@@ -189,8 +191,9 @@ export class ConversationsService {
     messageId: string,
     value: FeedbackValue,
     idempotencyKey: string,
+    handoffRequestId: string | null,
   ) {
-    return this.recordOrResolveFeedback(tx, conversationId, messageId, value, idempotencyKey);
+    return this.recordOrResolveFeedback(tx, conversationId, messageId, value, idempotencyKey, handoffRequestId);
   }
 
   private recordFeedbackAudit(
@@ -201,9 +204,11 @@ export class ConversationsService {
     conversationId: string,
     messageId: string,
     value: FeedbackValue,
+    handoffRequestId: string | null,
   ) {
     return this.audit.record(tx, {
       conversationId,
+      handoffRequestId: handoffRequestId ?? undefined,
       actorType: 'customer',
       action,
       outcome,

@@ -18,7 +18,9 @@ import type {
   StaffReplyResponse,
   StoredCloseReason,
   StoredResolutionCode,
+  FeedbackValue,
 } from '@ai-agent/contracts';
+import { FEEDBACK_VALUES } from '@ai-agent/contracts';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { hashConversationToken } from '../conversations/conversation-token.js';
@@ -290,7 +292,7 @@ export class HandoffService {
     });
     const hasMore = events.length > limit;
     const page = hasMore ? events.slice(0, limit) : events;
-    const items = page.map((event) => this.toTimelineItem(event, request.id));
+    const items = page.map((event) => this.toTimelineItem(event, request.id, request.conversationId));
     const last = page.at(-1);
     return {
       requestId: request.id,
@@ -395,10 +397,15 @@ export class HandoffService {
     return { id: note.id, content: note.content, operatorId: note.operatorId, createdAt: note.createdAt.toISOString() };
   }
 
-  private toTimelineItem(event: { id: string; createdAt: Date; actorType: string; actorId: string | null; action: string; outcome: string; metadata: unknown }, requestId: string) {
+  private toTimelineItem(
+    event: { id: string; createdAt: Date; actorType: string; actorId: string | null; action: string; outcome: string; metadata: unknown },
+    requestId: string,
+    conversationId: string,
+  ) {
     const action = this.normalizeTimelineAction(event.action);
     const metadata = this.readTimelineMetadata(event.metadata);
     const closeOutcome = this.timelineCloseOutcome(action, metadata);
+    const feedbackValue = this.timelineFeedbackValue(action, metadata, conversationId);
     return {
       eventId: event.id,
       occurredAt: event.createdAt.toISOString(),
@@ -411,6 +418,7 @@ export class HandoffService {
       tag: this.tagFor(action, metadata),
       closeReason: closeOutcome.closeReason,
       resolutionCode: closeOutcome.resolutionCode,
+      feedbackValue,
     };
   }
 
@@ -426,6 +434,7 @@ export class HandoffService {
       'handoff_requested', 'handoff_request_replayed', 'handoff_claimed', 'handoff_claim_replayed',
       'handoff_closed', 'handoff_close_replayed', 'operator_reply_created', 'operator_reply_replayed',
       'internal_note_created', 'internal_note_replayed', 'conversation_tag_added', 'conversation_tag_removed',
+      'message_feedback_created', 'message_feedback_replayed', 'message_feedback_conflict',
     ];
     if (!allowed.includes(action as TimelineAction)) throw new InternalServerErrorException('unsupported audit action');
     return action as TimelineAction;
@@ -433,6 +442,7 @@ export class HandoffService {
 
   private normalizeTimelineResult(outcome: string, action: string): TimelineResult {
     if (outcome === 'replayed' || action.endsWith('_replayed')) return 'replayed';
+    if (outcome === 'conflict' && action === 'message_feedback_conflict') return 'rejected';
     if (outcome === 'created' || outcome === 'claimed' || outcome === 'closed' || outcome === 'removed') return 'succeeded';
     throw new InternalServerErrorException('unsupported audit outcome');
   }
@@ -446,14 +456,14 @@ export class HandoffService {
   }
 
   private subjectTypeFor(action: TimelineAction): TimelineSubjectType {
-    if (action.startsWith('operator_reply_')) return 'message';
+    if (action.startsWith('operator_reply_') || action.startsWith('message_feedback_')) return 'message';
     if (action.startsWith('internal_note_')) return 'internal_note';
     if (action.startsWith('conversation_tag_')) return 'conversation_tag';
     return 'handoff_request';
   }
 
   private subjectRefFor(action: TimelineAction, metadata: Record<string, string>, requestId: string) {
-    if (action.startsWith('operator_reply_')) return metadata.messageId ?? null;
+    if (action.startsWith('operator_reply_') || action.startsWith('message_feedback_')) return metadata.messageId ?? null;
     if (action.startsWith('internal_note_')) return metadata.noteId ?? null;
     if (action.startsWith('handoff_')) return requestId;
     return null;
@@ -465,6 +475,21 @@ export class HandoffService {
     const allowed: InternalTag[] = ['urgent', 'billing', 'technical', 'follow_up'];
     if (!tag || !allowed.includes(tag as InternalTag)) throw new InternalServerErrorException('unsupported audit tag');
     return tag as InternalTag;
+  }
+
+  private timelineFeedbackValue(action: TimelineAction, metadata: Record<string, string>, conversationId: string): FeedbackValue | null {
+    if (!action.startsWith('message_feedback_')) return null;
+    const allowedKeys = new Set(['feedbackId', 'conversationId', 'messageId', 'value']);
+    if (Object.keys(metadata).length !== allowedKeys.size || Object.keys(metadata).some((key) => !allowedKeys.has(key))) {
+      throw new InternalServerErrorException('unsupported feedback metadata');
+    }
+    if (!metadata.feedbackId || !metadata.messageId || metadata.conversationId !== conversationId) {
+      throw new InternalServerErrorException('unsupported feedback metadata');
+    }
+    if (!FEEDBACK_VALUES.includes(metadata.value as FeedbackValue)) {
+      throw new InternalServerErrorException('unsupported feedback value');
+    }
+    return metadata.value as FeedbackValue;
   }
 
   private timelineCloseOutcome(action: TimelineAction, metadata: Record<string, string>) {

@@ -34,7 +34,10 @@ export type TimelineAction =
   | 'internal_note_created'
   | 'internal_note_replayed'
   | 'conversation_tag_added'
-  | 'conversation_tag_removed';
+  | 'conversation_tag_removed'
+  | 'message_feedback_created'
+  | 'message_feedback_replayed'
+  | 'message_feedback_conflict';
 export type TimelineResult = 'succeeded' | 'replayed' | 'rejected';
 export type TimelineSubjectType = 'handoff_request' | 'message' | 'internal_note' | 'conversation_tag';
 
@@ -174,6 +177,7 @@ export interface StaffAuditTimelineItem {
   tag: InternalTag | null;
   closeReason: StoredCloseReason | null;
   resolutionCode: StoredResolutionCode | null;
+  feedbackValue: FeedbackValue | null;
 }
 
 export interface StaffAuditTimelineResponse {

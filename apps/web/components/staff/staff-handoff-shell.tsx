@@ -30,6 +30,23 @@ function createIdempotencyKey() {
   return globalThis.crypto?.randomUUID?.() ?? `reply-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function timelineResultLabel(result: StaffAuditTimelineResponse['items'][number]) {
+  if (result.action === 'message_feedback_conflict') return '冲突';
+  if (result.result === 'replayed') return '重复';
+  if (result.result === 'succeeded') return '成功';
+  return '拒绝';
+}
+
+function feedbackLabel(value: StaffAuditTimelineResponse['items'][number]['feedbackValue']) {
+  if (value === 'helpful') return '有帮助';
+  if (value === 'not_helpful') return '没帮助';
+  return null;
+}
+
+function shortSubjectRef(value: string | null) {
+  return value ? `${value.slice(0, 8)}…` : null;
+}
+
 export function StaffHandoffShell() {
   const [staffToken, setStaffToken] = useState('');
   const [items, setItems] = useState<StaffHandoffRequest[]>([]);
@@ -227,8 +244,16 @@ export function StaffHandoffShell() {
                   <section aria-label="Audit timeline">
                     <h2>Audit timeline</h2>
                     <ol>
-                      {(timelines[request.requestId]?.items ?? []).map((event) => (
+                      {(timelines[request.requestId]?.items ?? []).filter((event) => !event.feedbackValue).map((event) => (
                         <li key={event.eventId}>{event.occurredAt} · {event.action} · {event.result}{event.tag ? ` · ${event.tag}` : ''}</li>
+                      ))}
+                    </ol>
+                    <h3>Feedback audit events</h3>
+                    <ol>
+                      {(timelines[request.requestId]?.items ?? []).filter((event) => event.feedbackValue).map((event) => (
+                        <li key={event.eventId}>
+                          {event.occurredAt} 路 {event.action} 路 {timelineResultLabel(event)} 路 客户反馈：{feedbackLabel(event.feedbackValue)} 路 消息标识：{shortSubjectRef(event.subjectRef) ?? 'unknown'}
+                        </li>
                       ))}
                     </ol>
                   </section>

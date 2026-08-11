@@ -73,13 +73,29 @@ test('staff queue enforces access, claims, and closes a handoff', async ({ page,
   await claimedCard.locator('textarea').nth(1).fill('staff e2e reply');
   await claimedCard.locator('form').nth(1).locator('button[type="submit"]').click();
   await expect(claimedCard).toContainText('staff e2e reply');
+  const customerHistoryResponse = await request.get(`${apiBase}/conversations/${conversation.conversationId}/messages`, {
+    headers: { authorization: `Bearer ${conversation.accessToken}` },
+  });
+  const customerHistory = await customerHistoryResponse.json() as { messages: Array<{ id: string; senderType: string }> };
+  const humanMessage = customerHistory.messages.find((message) => message.senderType === 'human_operator');
+  expect(humanMessage).toBeTruthy();
+  const feedbackResponse = await request.post(`${apiBase}/conversations/${conversation.conversationId}/messages/${humanMessage?.id}/feedback`, {
+    headers: { authorization: `Bearer ${conversation.accessToken}` },
+    data: { value: 'helpful', idempotencyKey: 'e2e-human-feedback-1' },
+  });
+  expect(feedbackResponse.ok()).toBeTruthy();
+  await page.locator('#handoff-status-filter').selectOption('requested');
+  await page.locator('#handoff-status-filter').selectOption('claimed');
+  const refreshedClaimedCard = page.locator('.message-list article').filter({ hasText: conversation.conversationId });
+  await expect(refreshedClaimedCard.getByRole('heading', { name: 'Feedback audit events' })).toBeVisible();
+  await expect(refreshedClaimedCard).toContainText('客户反馈：有帮助');
   await claimedCard.getByLabel('Internal note').fill('e2e internal note');
   await claimedCard.getByRole('button', { name: 'Add note' }).click();
   await expect(claimedCard).toContainText('e2e internal note');
   await claimedCard.getByRole('button', { name: 'Add tag' }).click();
   await expect(claimedCard).toContainText('urgent');
   await expect(claimedCard.getByRole('heading', { name: 'Audit timeline' })).toBeVisible();
-  await expect(claimedCard.getByRole('list').last()).toContainText('handoff_claimed');
+  await expect(claimedCard.locator('section[aria-label="Audit timeline"]').getByRole('list').first()).toContainText('handoff_claimed');
   await claimedCard.locator('select[id^="close-reason-"]').selectOption('operator_completed');
   await claimedCard.locator('select[id^="resolution-"]').selectOption('resolved');
   await claimedCard.getByRole('button', { name: '关闭接管' }).click();

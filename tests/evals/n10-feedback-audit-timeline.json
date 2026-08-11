@@ -1,0 +1,12 @@
+[
+  { "category": "fixed_actions", "expectation": "Only message_feedback_created, message_feedback_replayed, and message_feedback_conflict are projected." },
+  { "category": "explicit_handoff_scope", "expectation": "Feedback is visible only when the audit event has both the target handoffRequestId and conversationId." },
+  { "category": "legacy_null_hidden", "expectation": "N9 feedback events without handoffRequestId remain hidden rather than being guessed into a timeline." },
+  { "category": "human_association", "expectation": "Human Operator feedback is associated through OperatorReply.handoffRequestId." },
+  { "category": "ai_boundary", "expectation": "AI feedback without an explicit handoff association is not projected to Staff timeline." },
+  { "category": "fixed_result_mapping", "expectation": "created maps to succeeded, replayed to replayed, and conflict to rejected." },
+  { "category": "redacted_projection", "expectation": "Staff sees fixed value and truncated message identifier, never feedbackId or raw metadata." },
+  { "category": "permission_reuse", "expectation": "The existing handoff:read and conversation:read permissions remain required." },
+  { "category": "fail_closed", "expectation": "Unknown action, outcome, value, subject, or metadata is rejected or hidden." },
+  { "category": "read_only", "expectation": "N10 adds no endpoint, write operation, migration, report, notification, or AI call." }
+]

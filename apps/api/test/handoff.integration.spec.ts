@@ -199,6 +199,26 @@ describeReal('handoff request loop', () => {
       expect(first.message.responseType).toBe('human_reply');
 
       const history = await conversations.getMessages(conversation.id, accessToken);
+      const feedback = await conversations.submitMessageFeedback(conversation.id, accessToken, first.message.id, 'helpful', 'reply-feedback-1');
+      expect(feedback).toMatchObject({ messageId: first.message.id, value: 'helpful', status: 'recorded', idempotent: false });
+      const legacyFeedbackEvent = await prisma.auditEvent.create({
+        data: {
+          conversationId: conversation.id,
+          actorType: 'customer',
+          action: 'message_feedback_created',
+          outcome: 'created',
+          metadata: { feedbackId: 'legacy-feedback', conversationId: conversation.id, messageId: first.message.id, value: 'helpful' },
+        },
+      });
+      const timelineWithFeedback = await handoff.getAuditTimeline(request.requestId, 100);
+      expect(timelineWithFeedback.items.find((item) => item.action === 'message_feedback_created')).toMatchObject({
+        feedbackValue: 'helpful',
+        actorType: 'customer',
+        actorRef: null,
+        subjectType: 'message',
+        subjectRef: first.message.id,
+      });
+      expect(timelineWithFeedback.items.some((item) => item.eventId === legacyFeedbackEvent.id)).toBe(false);
       expect(history.messages.at(-1)).toMatchObject({ content: '人工回复内容', senderType: 'human_operator' });
       expect(await prisma.operatorReply.count({ where: { handoffRequestId: request.requestId } })).toBe(1);
       expect(await prisma.auditEvent.count({ where: { handoffRequestId: request.requestId, action: { in: ['operator_reply_created', 'operator_reply_replayed'] } } })).toBe(2);

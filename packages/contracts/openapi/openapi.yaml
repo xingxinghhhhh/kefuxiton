@@ -576,7 +576,7 @@ components:
           type: array
           items:
             type: object
-            required: [eventId, occurredAt, actorType, actorRef, action, result, subjectType, subjectRef, tag, closeReason, resolutionCode]
+            required: [eventId, occurredAt, actorType, actorRef, action, result, subjectType, subjectRef, tag, closeReason, resolutionCode, feedbackValue]
             properties:
               eventId: { type: string, format: uuid }
               occurredAt: { type: string, format: date-time }
@@ -584,13 +584,14 @@ components:
               actorRef: { type: string, nullable: true }
               action:
                 type: string
-                enum: [handoff_requested, handoff_request_replayed, handoff_claimed, handoff_claim_replayed, handoff_closed, handoff_close_replayed, operator_reply_created, operator_reply_replayed, internal_note_created, internal_note_replayed, conversation_tag_added, conversation_tag_removed]
+                enum: [handoff_requested, handoff_request_replayed, handoff_claimed, handoff_claim_replayed, handoff_closed, handoff_close_replayed, operator_reply_created, operator_reply_replayed, internal_note_created, internal_note_replayed, conversation_tag_added, conversation_tag_removed, message_feedback_created, message_feedback_replayed, message_feedback_conflict]
               result: { type: string, enum: [succeeded, replayed, rejected] }
               subjectType: { type: string, enum: [handoff_request, message, internal_note, conversation_tag] }
               subjectRef: { type: string, nullable: true }
               tag: { type: string, nullable: true, enum: [urgent, billing, technical, follow_up] }
               closeReason: { type: string, nullable: true, enum: [operator_completed, customer_requested_close, duplicate_request, out_of_scope, unable_to_resolve, legacy_unclassified] }
               resolutionCode: { type: string, nullable: true, enum: [resolved, partially_resolved, unresolved, no_action_required, legacy_unclassified] }
+              feedbackValue: { type: string, nullable: true, enum: [helpful, not_helpful] }
     HandoffRequestResponse:
       type: object
       required: [conversationId, requestId, status, reasonCode, requestedAt, updatedAt, idempotent]

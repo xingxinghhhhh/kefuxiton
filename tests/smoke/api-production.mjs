@@ -273,6 +273,12 @@ try {
   assert(humanReply.body.idempotent === false, 'first human reply must not be marked replayed');
   assert(humanReply.body.message?.senderType === 'human_operator', 'human reply must identify its sender');
   assert(humanReply.body.message?.responseType === 'human_reply', 'human reply must identify its response type');
+  const humanFeedback = await requestJson(`/api/v1/conversations/${conversationId}/messages/${humanReply.body.message.id}/feedback`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ value: 'helpful', idempotencyKey: 'smoke-human-feedback-1' }),
+  });
+  assert(humanFeedback.response.status === 201 && humanFeedback.body.status === 'recorded', 'human message feedback must be recorded');
   const humanReplyReplay = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/replies`, {
     method: 'POST',
     headers: { authorization: `Staff ${staffToken}`, 'content-type': 'application/json', 'x-request-id': 'smoke-human-reply-2' },
@@ -355,6 +361,9 @@ try {
   });
   const closedEvent = closedTimeline.body.items?.find((item) => item.action === 'handoff_closed');
   assert(closedEvent?.closeReason === 'operator_completed' && closedEvent?.resolutionCode === 'resolved', 'timeline must project the structured close outcome');
+  const feedbackEvent = closedTimeline.body.items?.find((item) => item.action === 'message_feedback_created');
+  assert(feedbackEvent?.feedbackValue === 'helpful' && feedbackEvent?.subjectType === 'message' && feedbackEvent?.actorRef === null, 'timeline must project only associated redacted feedback');
+  assert(!closedTimeline.body.items?.some((item) => item.action === 'message_feedback_created' && item.subjectRef === sent.body.assistantMessageId), 'unassociated AI feedback must remain hidden from the handoff timeline');
 
   const closedMessage = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
     method: 'POST',
