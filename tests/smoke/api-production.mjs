@@ -110,9 +110,12 @@ function startApi() {
     env: {
       ...process.env,
       DATABASE_URL: databaseUrl,
+      APP_ENV: 'test',
       PORT: new URL(baseUrl).port,
       WEB_ORIGIN: 'http://127.0.0.1:3000',
+      NEXT_PUBLIC_API_BASE_URL: `${baseUrl}/api/v1`,
       STAFF_AUTH_MODE: 'test',
+      ALLOW_KNOWLEDGE_PUBLISH: '0',
       AI_AGENT_TEST_STAFF_TOKEN: staffToken,
       AI_AGENT_TEST_STAFF_ID: 'test-operator',
     },

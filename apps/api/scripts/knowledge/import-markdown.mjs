@@ -1,11 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import { isKnowledgePublishAllowed } from '@ai-agent/config';
 import { KnowledgeService } from '../../dist/modules/knowledge/knowledge.service.js';
 
 const filePath = resolve(process.argv[2] ?? 'src/modules/knowledge/fixtures/it-service-desk.local-eval.md');
 const requestedStatus = process.argv.find((argument) => argument.startsWith('--status='))?.slice('--status='.length) ?? 'local_eval';
-if (requestedStatus === 'published' && process.env.ALLOW_KNOWLEDGE_PUBLISH !== '1') {
+if (requestedStatus === 'published' && !isKnowledgePublishAllowed(process.env)) {
   throw new Error('Publishing knowledge requires ALLOW_KNOWLEDGE_PUBLISH=1 and complete approved metadata');
 }
 if (!['draft', 'published', 'superseded', 'expired', 'local_eval'].includes(requestedStatus)) {

@@ -23,6 +23,8 @@ const requiredFiles = [
   'apps/api/package.json',
   'apps/api/prisma/schema.prisma',
   'apps/web/package.json',
+  'packages/config/package.json',
+  'packages/config/src/index.ts',
   'packages/contracts/package.json',
   'packages/contracts/src/index.ts',
   'tests/evals/n1-safe-unavailable.json',

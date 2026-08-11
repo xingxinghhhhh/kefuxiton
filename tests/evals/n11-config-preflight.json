@@ -1,0 +1,12 @@
+[
+  { "category": "required_fields", "expectation": "Preflight requires explicit environment, ports, origins, database, API base, auth mode, and knowledge publish flag." },
+  { "category": "url_validation", "expectation": "Database, Web origin, and public API URLs are structurally validated without exposing their values." },
+  { "category": "production_test_auth_block", "expectation": "Production cannot enable the test Staff identity adapter." },
+  { "category": "production_secret_block", "expectation": "Production rejects test Staff token and test Staff id presence." },
+  { "category": "production_knowledge_publish_block", "expectation": "Production rejects ALLOW_KNOWLEDGE_PUBLISH=1." },
+  { "category": "deny_by_default", "expectation": "Missing formal Staff identity continues to deny access." },
+  { "category": "safe_errors", "expectation": "Preflight and API startup errors expose only safe codes and field names." },
+  { "category": "no_database_write", "expectation": "Preflight validates URL shape only and does not migrate or write the database." },
+  { "category": "web_secret_boundary", "expectation": "Public Web API configuration rejects embedded credentials and does not accept secret configuration." },
+  { "category": "regression_boundary", "expectation": "N1–N10 business paths remain outside the configuration node and are regression-tested by existing gates." }
+]

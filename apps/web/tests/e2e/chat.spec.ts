@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+const apiBase = process.env.E2E_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
+
 test('completes the safe mock chat flow', async ({ page }) => {
   await page.goto('/chat');
   const composer = page.locator('#message');
@@ -21,7 +23,6 @@ test('completes the safe mock chat flow', async ({ page }) => {
 });
 
 test('customer handoff status disables automatic replies', async ({ page, request }) => {
-  const apiBase = 'http://127.0.0.1:3001/api/v1';
   const createdResponse = await request.post(`${apiBase}/conversations`);
   expect(createdResponse.ok()).toBeTruthy();
   const conversation = await createdResponse.json() as { conversationId: string; accessToken: string };
@@ -40,7 +41,6 @@ test('customer handoff status disables automatic replies', async ({ page, reques
 });
 
 test('staff queue enforces access, claims, and closes a handoff', async ({ page, request }) => {
-  const apiBase = 'http://127.0.0.1:3001/api/v1';
   const createdResponse = await request.post(`${apiBase}/conversations`);
   expect(createdResponse.ok()).toBeTruthy();
   const conversation = await createdResponse.json() as { conversationId: string; accessToken: string };

@@ -10,6 +10,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@ai-agent/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@ai-agent/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -74,6 +77,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@ai-agent/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@ai-agent/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -102,6 +108,12 @@ importers:
       eslint:
         specifier: ^9.22.0
         version: 9.39.5(jiti@2.7.0)(supports-color@8.0.0)
+      typescript:
+        specifier: ^5.8.2
+        version: 5.8.2
+
+  packages/config:
+    devDependencies:
       typescript:
         specifier: ^5.8.2
         version: 5.8.2

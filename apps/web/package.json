@@ -13,6 +13,7 @@
     "test:e2e:smoke": "node tests/chat-route.smoke.mjs"
   },
   "dependencies": {
+    "@ai-agent/config": "workspace:*",
     "@ai-agent/contracts": "workspace:*",
     "next": "^15.2.3",
     "react": "^19.0.0",
