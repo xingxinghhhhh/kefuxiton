@@ -266,3 +266,4 @@ export function isKnowledgePublishAllowed(environment: Environment): boolean {
 }
 
 export * from './business-readiness.js';
+export * from './knowledge-source.js';

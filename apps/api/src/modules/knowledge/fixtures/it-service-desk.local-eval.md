@@ -1,9 +1,9 @@
 ---
-sourceId: CANDIDATE-IT-SERVICE-DESK-001
-sourceRef: local://docs/knowledge/it-service-desk.local-eval.md
+sourceId: SYNTHETIC-IT-SERVICE-DESK-SOURCE-001
+sourceRef: repository synthetic fixture
 sourceStatus: local_eval
-title: 企业内部 IT 服务台常见使用支持（合成评测文档）
-version: v0.1.0-local_eval
+title: 企业内部 IT 服务台——办公系统常见使用支持
+version: synthetic-v1
 status: local_eval
 effectiveAt:
 expiresAt:

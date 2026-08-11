@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { normalizeKnowledgeMarkdown } from '@ai-agent/config';
 import type { Citation } from '@ai-agent/contracts';
 import type { KnowledgeChunkInput, KnowledgeStatus, ParsedKnowledgeDocument, RetrievedKnowledgeChunk } from './knowledge.types.js';
 
@@ -9,10 +10,6 @@ const ENGLISH_STOP_WORDS = new Set(['a', 'an', 'and', 'are', 'can', 'do', 'for',
 
 function sha256(value: string) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
-}
-
-function normalizeDocument(markdown: string) {
-  return markdown.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n').map((line) => line.replace(/[ \t]+$/u, '')).join('\n').trim() + '\n';
 }
 
 function parseMetadata(markdown: string) {
@@ -121,7 +118,7 @@ function parseFaqBlocks(body: string) {
 }
 
 export function parseKnowledgeMarkdown(markdown: string): ParsedKnowledgeDocument {
-  const normalized = normalizeDocument(markdown);
+  const normalized = normalizeKnowledgeMarkdown(markdown);
   const { metadata, body } = parseMetadata(normalized);
   const status = parseStatus(required(metadata, 'status'));
   const chunks = parseFaqBlocks(body).flatMap((block, index) => splitIntoChunks(block, index));

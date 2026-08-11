@@ -1,0 +1,6 @@
+[
+  { "category": "confirmed_identity", "expectation": "The confirmed synthetic package and Markdown fixture share source, version, status, and content hash." },
+  { "category": "local_eval_gate", "expectation": "The aligned synthetic package is ready only for local_eval." },
+  { "category": "production_gate", "expectation": "The synthetic package remains blocked from production." },
+  { "category": "mismatch_rejection", "expectation": "An import target that differs from the manifest source is rejected before database access." }
+]

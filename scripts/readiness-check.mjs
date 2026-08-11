@@ -7,6 +7,7 @@ import {
   canonicalizeBusinessInputPackage,
   evaluateBusinessReadiness,
   loadBusinessInputPackage,
+  normalizeKnowledgeMarkdown,
 } from '../packages/config/dist/index.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -40,12 +41,16 @@ function sha256(value) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
+function hashKnowledgeMarkdown(markdown) {
+  return sha256(normalizeKnowledgeMarkdown(markdown));
+}
+
 async function readPackage(manifestPath) {
   const content = await readFile(safePath(manifestPath), 'utf8');
   const raw = JSON.parse(content);
   const packageInput = loadBusinessInputPackage(raw);
   const sourceContentSha256 = packageInput.knowledgeSource.sourceFile
-    ? sha256(await readFile(safePath(packageInput.knowledgeSource.sourceFile), 'utf8'))
+    ? hashKnowledgeMarkdown(await readFile(safePath(packageInput.knowledgeSource.sourceFile), 'utf8'))
     : undefined;
   return {
     packageInput,

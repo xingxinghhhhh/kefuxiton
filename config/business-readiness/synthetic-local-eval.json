@@ -1,36 +1,51 @@
 {
   "schemaVersion": "1.0.0",
-  "packageId": "SYNTHETIC_IT_SERVICE_DESK_001",
-  "packageVersion": "0.1.0-local-eval",
+  "packageId": "SYNTHETIC-IT-SERVICE-DESK-001",
+  "packageVersion": "synthetic-v1",
   "packageStatus": "confirmed",
   "synthetic": true,
   "domain": {
     "domainId": "synthetic-it-service-desk",
-    "name": "Synthetic IT service desk"
+    "name": "企业内部 IT 服务台——办公系统常见使用支持"
   },
-  "serviceAudience": "Synthetic local evaluation users",
+  "serviceAudience": "企业内部员工及经授权的外部协作人员",
   "allowedScope": [
-    "Answer from the published synthetic local-evaluation knowledge"
+    "账号登录与常见登录问题",
+    "密码重置操作指引",
+    "办公系统访问申请流程说明",
+    "常见故障初步排查",
+    "安全事件上报指引"
   ],
   "excludedScope": [
-    "Real customer account actions",
-    "Production business facts"
+    "直接修改权限",
+    "重置他人密码",
+    "访问客户数据",
+    "执行生产操作",
+    "财务、支付、人事敏感事项",
+    "任何未经发布知识支持的企业事实"
   ],
   "handoffScenarios": [
-    "The synthetic knowledge does not answer the question",
-    "The user requests a prohibited action"
+    "身份无法确认",
+    "持续登录失败",
+    "权限争议",
+    "疑似安全事件",
+    "系统大面积故障",
+    "高风险操作请求"
   ],
   "prohibitedActions": [
-    "Change account data",
-    "Issue refunds or payments",
-    "Expose private or hidden context"
+    "不读取或修改密码",
+    "不索取 Token、API Key 或凭证",
+    "不直接授予权限",
+    "不执行生产变更",
+    "不处理支付、退款、财务或人事敏感数据",
+    "不访问其他用户或客户数据"
   ],
   "knowledgeSource": {
-    "sourceId": "SYNTHETIC_IT_SERVICE_DESK_KB_001",
-    "sourceRef": "test://it-service-desk-local-eval",
+    "sourceId": "SYNTHETIC-IT-SERVICE-DESK-SOURCE-001",
+    "sourceRef": "repository synthetic fixture",
     "sourceStatus": "local_eval",
-    "documentVersion": "0.1.0-local-eval",
-    "contentSha256": "ac2ebd1ba8fac9774961caf3140becc64ad151e7e5b6e0d503ca88bfa3e3c974",
+    "documentVersion": "synthetic-v1",
+    "contentSha256": "23bc346f0e1ebb577b4584dcd27a1cabeaea8802bf44b3d3d7a54822f2a6cc1a",
     "sourceFile": "apps/api/src/modules/knowledge/fixtures/it-service-desk.local-eval.md"
   },
   "accountability": {
@@ -41,5 +56,5 @@
     "confirmedAt": "2026-01-01T00:00:00.000Z"
   },
   "effectiveAt": "2026-01-01T00:00:00.000Z",
-  "canonicalSha256": "b1b48fe58618d3c7e48403b0c858a08aa78d1f3449c150015841e1f2daab1509"
+  "canonicalSha256": "ed5b07cfcf37fd2d4a9bf340e68a8ed111f34f95e9359c0ca36a6b0eb2b6711c"
 }

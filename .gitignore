@@ -4,6 +4,8 @@ dist/
 build/
 coverage/
 .next/
+.playwright/
+test-results/
 .turbo/
 *.tsbuildinfo
 
@@ -26,4 +28,3 @@ logs/
 .vscode/
 .DS_Store
 Thumbs.db
-

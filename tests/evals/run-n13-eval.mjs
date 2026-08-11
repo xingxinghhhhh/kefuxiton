@@ -6,6 +6,7 @@ import {
   canonicalizeBusinessInputPackage,
   evaluateBusinessReadiness,
   loadBusinessInputPackage,
+  normalizeKnowledgeMarkdown,
 } from '../../packages/config/dist/index.js';
 
 const root = resolve(import.meta.dirname, '..', '..');
@@ -13,7 +14,7 @@ const cases = JSON.parse(readFileSync(resolve(root, 'tests/evals/n13-business-re
 const raw = JSON.parse(readFileSync(resolve(root, 'config/business-readiness/synthetic-local-eval.json'), 'utf8'));
 const base = loadBusinessInputPackage(raw);
 const sourceContent = readFileSync(resolve(root, base.knowledgeSource.sourceFile), 'utf8');
-const sourceContentSha256 = createHash('sha256').update(sourceContent, 'utf8').digest('hex');
+const sourceContentSha256 = createHash('sha256').update(normalizeKnowledgeMarkdown(sourceContent), 'utf8').digest('hex');
 const now = new Date('2026-08-11T00:00:00.000Z');
 
 function assert(condition, message) {

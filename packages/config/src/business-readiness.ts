@@ -342,7 +342,7 @@ export function evaluateBusinessReadiness(input: unknown, target: BusinessReadin
 
   if (packageInput.synthetic) {
     if (target === 'production') reasons.push('SYNTHETIC_NOT_PRODUCTION');
-    if (packageInput.knowledgeSource.sourceStatus !== 'local_eval') reasons.push('SOURCE_NOT_APPROVED');
+    if (!['local_eval', 'published'].includes(packageInput.knowledgeSource.sourceStatus)) reasons.push('SOURCE_NOT_APPROVED');
     if (packageInput.accountability.confirmationMethod !== 'synthetic_local_eval') reasons.push('INVALID_FIELD');
   } else {
     if (packageInput.accountability.confirmationMethod === 'synthetic_local_eval') reasons.push('INVALID_FIELD');

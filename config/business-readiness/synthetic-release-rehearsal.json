@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "SYNTHETIC-IT-SERVICE-DESK-RELEASE-REHEARSAL-001",
+  "packageVersion": "v1.0.0-release-rehearsal",
+  "packageStatus": "confirmed",
+  "synthetic": true,
+  "domain": {
+    "domainId": "synthetic-it-service-desk-release-rehearsal",
+    "name": "Synthetic release rehearsal knowledge"
+  },
+  "serviceAudience": "Synthetic release rehearsal users",
+  "allowedScope": [
+    "Answer from the synthetic release rehearsal fixture"
+  ],
+  "excludedScope": [
+    "Real customer account actions",
+    "Production business facts"
+  ],
+  "handoffScenarios": [
+    "The synthetic release rehearsal knowledge does not answer the question",
+    "The user requests a prohibited action"
+  ],
+  "prohibitedActions": [
+    "Change account data",
+    "Issue refunds or payments",
+    "Expose private or hidden context"
+  ],
+  "knowledgeSource": {
+    "sourceId": "TEST-ONLY-RELEASE-REHEARSAL",
+    "sourceRef": "test://release-rehearsal",
+    "sourceStatus": "published",
+    "documentVersion": "v1.0.0-release-rehearsal",
+    "contentSha256": "ef27e67e74ca902a9ed7da61426522509b314da9d9a2e461ae8dc00532c41314",
+    "sourceFile": "tests/fixtures/release-rehearsal-published.md"
+  },
+  "accountability": {
+    "businessOwnerRef": "SYNTHETIC_RELEASE_OWNER_001",
+    "finalApproverRef": "SYNTHETIC_RELEASE_APPROVER_001",
+    "confirmationRef": "SYNTHETIC_RELEASE_APPROVAL_001",
+    "confirmationMethod": "synthetic_local_eval",
+    "confirmedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "effectiveAt": "2026-01-01T00:00:00.000Z",
+  "canonicalSha256": "5b54843d95bc17d6fe9e16d239c2bd43babfcb20c82f30a1fd6fd77dca6e9489"
+}

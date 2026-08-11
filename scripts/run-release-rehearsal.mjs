@@ -340,8 +340,8 @@ if (!inputDatabaseUrl) {
     emit('stage_summary', { stage: 'migration', migrationCount: 8, migrationRef: `sha256:${shortHash(migrationOutput.replace(/\s+/g, ' '))}` });
 
     const fixtureEnvironment = { ...productionEnvironment, APP_ENV: 'test', STAFF_AUTH_MODE: 'deny', ALLOW_KNOWLEDGE_PUBLISH: '1' };
-    await runStage(pnpmCommand, ['--filter', '@ai-agent/api', 'run', 'knowledge:import', '../../tests/fixtures/release-rehearsal-published.md', '--status=published', '--readiness-manifest=../../config/business-readiness/synthetic-local-eval.json', '--readiness-target=local_eval'], fixtureEnvironment, 60_000, 'fixture_import');
-    const publishGuard = await runCommand(pnpmCommand, ['--filter', '@ai-agent/api', 'run', 'knowledge:import', '../../tests/fixtures/release-rehearsal-published.md', '--status=published', '--readiness-manifest=../../config/business-readiness/synthetic-local-eval.json', '--readiness-target=production'], productionEnvironment, 30_000, 'production_publish_guard');
+    await runStage(pnpmCommand, ['--filter', '@ai-agent/api', 'run', 'knowledge:import', '../../tests/fixtures/release-rehearsal-published.md', '--status=published', '--readiness-manifest=../../config/business-readiness/synthetic-release-rehearsal.json', '--readiness-target=local_eval'], fixtureEnvironment, 60_000, 'fixture_import');
+    const publishGuard = await runCommand(pnpmCommand, ['--filter', '@ai-agent/api', 'run', 'knowledge:import', '../../tests/fixtures/release-rehearsal-published.md', '--status=published', '--readiness-manifest=../../config/business-readiness/synthetic-release-rehearsal.json', '--readiness-target=production'], productionEnvironment, 30_000, 'production_publish_guard');
     assert(publishGuard.code !== 0, 'production_publish_guard');
     emit('stage_completed', { stage: 'production_publish_guard', status: 'passed', result: 'denied' });
 

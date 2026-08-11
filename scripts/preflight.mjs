@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { formatConfigIssues, runPreflight } from '../packages/config/dist/index.js';
-import { canonicalizeBusinessInputPackage, evaluateBusinessReadiness, loadBusinessInputPackage } from '../packages/config/dist/index.js';
+import { canonicalizeBusinessInputPackage, evaluateBusinessReadiness, loadBusinessInputPackage, normalizeKnowledgeMarkdown } from '../packages/config/dist/index.js';
 
 const repositoryRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 function resolveRepositoryPath(candidate, base = repositoryRoot) {
@@ -15,6 +15,10 @@ function resolveRepositoryPath(candidate, base = repositoryRoot) {
 
 const readinessManifestPath = process.argv.find((argument) => argument.startsWith('--readiness-manifest='))?.slice('--readiness-manifest='.length);
 const requestedReadinessTarget = process.argv.find((argument) => argument.startsWith('--readiness-target='))?.slice('--readiness-target='.length);
+
+function hashKnowledgeMarkdown(markdown) {
+  return createHash('sha256').update(normalizeKnowledgeMarkdown(markdown), 'utf8').digest('hex');
+}
 
 try {
   const result = runPreflight(process.env);
@@ -28,7 +32,7 @@ try {
     const packageInput = loadBusinessInputPackage(manifest);
     const canonicalSha256 = createHash('sha256').update(canonicalizeBusinessInputPackage(packageInput), 'utf8').digest('hex');
     const sourceContentSha256 = packageInput.knowledgeSource.sourceFile
-      ? createHash('sha256').update(await readFile(resolveRepositoryPath(packageInput.knowledgeSource.sourceFile), 'utf8'), 'utf8').digest('hex')
+      ? hashKnowledgeMarkdown(await readFile(resolveRepositoryPath(packageInput.knowledgeSource.sourceFile), 'utf8'))
       : undefined;
     const readiness = evaluateBusinessReadiness(packageInput, readinessTarget, { canonicalSha256, sourceContentSha256 });
     if (readiness.status === 'NOT_READY') {
