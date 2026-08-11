@@ -6,7 +6,11 @@ const requireFromApi = createRequire(new URL('../apps/api/package.json', import.
 const { PrismaClient } = requireFromApi('@prisma/client');
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const inputDatabaseUrl = process.env.DATABASE_URL ?? 'postgresql://ai_agent:ai_agent_dev_only@localhost:5432/ai_customer_service?schema=public';
-const schema = `e2e_${Date.now()}_${process.pid}`;
+const externalSchema = process.env.E2E_EXTERNAL_SCHEMA === '1';
+const schema = process.env.E2E_SCHEMA ?? `e2e_${Date.now()}_${process.pid}`;
+if (externalSchema && !/^e2e_[a-zA-Z0-9_]+$|^release_rehearsal_[a-zA-Z0-9_]+$/.test(schema)) {
+  throw new Error('E2E schema reference is invalid');
+}
 const isolatedUrl = new URL(inputDatabaseUrl);
 isolatedUrl.searchParams.set('schema', schema);
 const databaseUrl = isolatedUrl.toString();
@@ -25,10 +29,10 @@ function run(command, args, env) {
 }
 
 try {
-  await admin.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
+  if (!externalSchema) await admin.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
   await admin.$disconnect();
   adminDisconnected = true;
-  run(pnpmCommand, ['--filter', '@ai-agent/api', 'db:migrate'], { ...process.env, DATABASE_URL: databaseUrl });
+  if (!externalSchema) run(pnpmCommand, ['--filter', '@ai-agent/api', 'db:migrate'], { ...process.env, DATABASE_URL: databaseUrl });
   if (!existsSync('apps/api/dist/main.js')) {
     run(pnpmCommand, ['--filter', '@ai-agent/api', 'build'], { ...process.env, DATABASE_URL: databaseUrl });
   }
@@ -38,7 +42,9 @@ try {
   });
 } finally {
   if (!adminDisconnected) await admin.$disconnect();
-  const cleanup = new PrismaClient({ datasources: { db: { url: inputDatabaseUrl } } });
-  await cleanup.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
-  await cleanup.$disconnect();
+  if (!externalSchema) {
+    const cleanup = new PrismaClient({ datasources: { db: { url: inputDatabaseUrl } } });
+    await cleanup.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    await cleanup.$disconnect();
+  }
 }

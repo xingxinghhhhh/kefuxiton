@@ -28,6 +28,11 @@ const requiredFiles = [
   'packages/contracts/package.json',
   'packages/contracts/src/index.ts',
   'tests/evals/n1-safe-unavailable.json',
+  'scripts/run-release-rehearsal.mjs',
+  'tests/evals/n12-release-rehearsal.json',
+  'tests/fixtures/release-rehearsal-published.md',
+  'docs/adr/0010-N12合成发布演练与回滚.md',
+  'docs/N12验收记录.md',
 ];
 const roleFiles = [
   'project-manager.toml',

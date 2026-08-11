@@ -14,7 +14,12 @@ if (!inputDatabaseUrl) {
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const childProcesses = new Set();
 let lastApiOutput = [];
-const smokeSchema = `api_smoke_${Date.now()}_${process.pid}`;
+const externalSchema = process.env.API_SMOKE_EXTERNAL_SCHEMA === '1';
+const smokeSchema = process.env.API_SMOKE_SCHEMA ?? `api_smoke_${Date.now()}_${process.pid}`;
+const useExternalFixture = externalSchema && process.env.API_SMOKE_USE_EXTERNAL_FIXTURE === '1';
+if (externalSchema && !/^api_smoke_[a-zA-Z0-9_]+$|^release_rehearsal_[a-zA-Z0-9_]+$/.test(smokeSchema)) {
+  throw new Error('API smoke schema reference is invalid');
+}
 const isolatedDatabaseUrl = new URL(inputDatabaseUrl);
 isolatedDatabaseUrl.searchParams.set('schema', smokeSchema);
 const databaseUrl = isolatedDatabaseUrl.toString();
@@ -53,16 +58,18 @@ Use the approved synthetic access process and do not share credentials.
 - Escalate if identity cannot be confirmed.
 `;
 const adminPrisma = new PrismaClient({ datasources: { db: { url: inputDatabaseUrl } } });
-await adminPrisma.$executeRawUnsafe(`CREATE SCHEMA "${smokeSchema}"`);
+if (!externalSchema) await adminPrisma.$executeRawUnsafe(`CREATE SCHEMA "${smokeSchema}"`);
 await adminPrisma.$disconnect();
-const migration = spawnSync(pnpmCommand, ['--filter', '@ai-agent/api', 'db:migrate'], {
-  cwd: process.cwd(),
-  env: { ...process.env, DATABASE_URL: databaseUrl },
-  stdio: 'inherit',
-  shell: process.platform === 'win32',
-  windowsHide: true,
-});
-if (migration.status !== 0) throw new Error('API smoke isolated schema migration failed');
+if (!externalSchema) {
+  const migration = spawnSync(pnpmCommand, ['--filter', '@ai-agent/api', 'db:migrate'], {
+    cwd: process.cwd(),
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    windowsHide: true,
+  });
+  if (migration.status !== 0) throw new Error('API smoke isolated schema migration failed');
+}
 const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
 const knowledge = new KnowledgeService(prisma);
 
@@ -105,20 +112,29 @@ async function waitForHealth() {
 
 function startApi() {
   lastApiOutput = [];
+  const appEnv = process.env.API_SMOKE_APP_ENV ?? 'test';
+  const staffAuthMode = process.env.API_SMOKE_STAFF_AUTH_MODE ?? 'test';
+  const allowKnowledgePublish = process.env.API_SMOKE_ALLOW_KNOWLEDGE_PUBLISH ?? '0';
+  const apiEnvironment = {
+    ...process.env,
+    DATABASE_URL: databaseUrl,
+    APP_ENV: appEnv,
+    PORT: new URL(baseUrl).port,
+    WEB_ORIGIN: process.env.API_SMOKE_WEB_ORIGIN ?? 'http://127.0.0.1:3000',
+    NEXT_PUBLIC_API_BASE_URL: `${baseUrl}/api/v1`,
+    STAFF_AUTH_MODE: staffAuthMode,
+    ALLOW_KNOWLEDGE_PUBLISH: allowKnowledgePublish,
+  };
+  if (staffAuthMode === 'test') {
+    apiEnvironment.AI_AGENT_TEST_STAFF_TOKEN = process.env.API_SMOKE_STAFF_TOKEN ?? staffToken;
+    apiEnvironment.AI_AGENT_TEST_STAFF_ID = process.env.API_SMOKE_STAFF_ID ?? 'test-operator';
+  } else {
+    delete apiEnvironment.AI_AGENT_TEST_STAFF_TOKEN;
+    delete apiEnvironment.AI_AGENT_TEST_STAFF_ID;
+  }
   const child = spawn(pnpmCommand, ['--filter', '@ai-agent/api', 'start'], {
     cwd: process.cwd(),
-    env: {
-      ...process.env,
-      DATABASE_URL: databaseUrl,
-      APP_ENV: 'test',
-      PORT: new URL(baseUrl).port,
-      WEB_ORIGIN: 'http://127.0.0.1:3000',
-      NEXT_PUBLIC_API_BASE_URL: `${baseUrl}/api/v1`,
-      STAFF_AUTH_MODE: 'test',
-      ALLOW_KNOWLEDGE_PUBLISH: '0',
-      AI_AGENT_TEST_STAFF_TOKEN: staffToken,
-      AI_AGENT_TEST_STAFF_ID: 'test-operator',
-    },
+    env: apiEnvironment,
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: process.platform === 'win32',
     windowsHide: true,
@@ -147,8 +163,10 @@ async function stopApi(child) {
 
 let api;
 try {
-  await prisma.knowledgeDocument.deleteMany({ where: { sourceId: smokeSourceId } });
-  await knowledge.importMarkdown(smokeMarkdown, 'published');
+  if (!useExternalFixture) {
+    await prisma.knowledgeDocument.deleteMany({ where: { sourceId: smokeSourceId } });
+    await knowledge.importMarkdown(smokeMarkdown, 'published');
+  }
   api = startApi();
   await waitForHealth();
 
@@ -160,14 +178,14 @@ try {
   const sent = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ content: 'How can I access the synthetic office system?' }),
+    body: JSON.stringify({ content: useExternalFixture ? 'How can I access the release rehearsal office system?' : 'How can I access the synthetic office system?' }),
   });
   assert(sent.response.status === 201, `message creation returned HTTP ${sent.response.status}`);
   assert(sent.body.messages?.length === 2, 'message creation did not return user and agent messages');
   assert(sent.body.responseType === 'knowledge_answer', 'published knowledge must answer through production API');
   assert(sent.body.agentMode === 'deterministic_knowledge', 'published knowledge must identify deterministic mode');
   assert(sent.body.citations?.length === 1, 'published answer must return a real citation');
-  assert(sent.body.citations[0].version === 'v1.0.0-test-only', 'citation must identify the published version');
+  assert(sent.body.citations[0].version === (useExternalFixture ? 'v1.0.0-release-rehearsal' : 'v1.0.0-test-only'), 'citation must identify the published version');
 
   const assistantMessageId = sent.body.assistantMessageId;
   const feedback = await requestJson(`/api/v1/conversations/${conversationId}/messages/${assistantMessageId}/feedback`, {
@@ -391,7 +409,7 @@ try {
   const afterRestart = await requestJson(`/api/v1/conversations/${restartConversation.body.conversationId}/messages`, {
     method: 'POST',
     headers: { authorization: `Bearer ${restartConversation.body.accessToken}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ content: 'How can I access the synthetic office system after restart?' }),
+    body: JSON.stringify({ content: useExternalFixture ? 'How can I access the release rehearsal office system after restart?' : 'How can I access the synthetic office system after restart?' }),
   });
   assert(afterRestart.response.status === 201, `post-restart message returned HTTP ${afterRestart.response.status}`);
   assert(afterRestart.body.messages?.length === 2, 'post-restart response did not return the new user and agent messages');
@@ -415,9 +433,11 @@ try {
   console.log('production API smoke passed: published answer/citation, unknown refusal, injection block, idempotent handoff, suppression, human reply, restart, no-published fallback, invalid credentials');
 } finally {
   for (const child of childProcesses) await stopApi(child);
-  await prisma.knowledgeDocument.deleteMany({ where: { sourceId: smokeSourceId } });
+  if (!externalSchema) await prisma.knowledgeDocument.deleteMany({ where: { sourceId: smokeSourceId } });
   await prisma.$disconnect();
-  const cleanupPrisma = new PrismaClient({ datasources: { db: { url: inputDatabaseUrl } } });
-  await cleanupPrisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${smokeSchema}" CASCADE`);
-  await cleanupPrisma.$disconnect();
+  if (!externalSchema) {
+    const cleanupPrisma = new PrismaClient({ datasources: { db: { url: inputDatabaseUrl } } });
+    await cleanupPrisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${smokeSchema}" CASCADE`);
+    await cleanupPrisma.$disconnect();
+  }
 }

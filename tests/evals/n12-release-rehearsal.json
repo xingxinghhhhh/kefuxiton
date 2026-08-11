@@ -1,0 +1,12 @@
+[
+  { "id": "N12-01", "category": "isolated_schema", "assertion": "每次演练使用唯一 release_rehearsal schema" },
+  { "id": "N12-02", "category": "single_migration", "assertion": "迁移只由主演练流程执行一次" },
+  { "id": "N12-03", "category": "published_fixture", "assertion": "生产形态只读取合成 published fixture" },
+  { "id": "N12-04", "category": "production_denial", "assertion": "production 禁止测试 Staff、Token 和知识发布" },
+  { "id": "N12-05", "category": "customer_smoke", "assertion": "生产形态覆盖健康、问答、引用、拒答、注入阻断和凭证拒绝" },
+  { "id": "N12-06", "category": "test_harness", "assertion": "测试形态复用 API smoke 与 Playwright E2E" },
+  { "id": "N12-07", "category": "safe_summary", "assertion": "回滚摘要只保留计数与关系摘要，不记录正文和密钥" },
+  { "id": "N12-08", "category": "rollback", "assertion": "N11 基线兼容产物在同一 schema 上完成读取校验" },
+  { "id": "N12-09", "category": "owned_cleanup", "assertion": "只删除本次创建且严格校验过的 schema" },
+  { "id": "N12-10", "category": "failure_codes", "assertion": "输入、超时、进程终止和清理失败有固定退出码" }
+]
