@@ -1,0 +1,13 @@
+[
+  { "category": "valid_local_eval", "expectation": "A complete synthetic package is ready only for local_eval." },
+  { "category": "missing_field", "expectation": "Missing accountability confirmation fails closed." },
+  { "category": "invalid_state", "expectation": "Unknown package lifecycle state is invalid." },
+  { "category": "unconfirmed", "expectation": "Pending confirmation is not ready." },
+  { "category": "not_yet_effective", "expectation": "A future effectiveAt is rejected." },
+  { "category": "expired", "expectation": "An expired package is rejected." },
+  { "category": "hash_mismatch", "expectation": "Declared canonical hash must match the computed hash." },
+  { "category": "synthetic_production_rejection", "expectation": "Synthetic input can never be production ready." },
+  { "category": "active_version_conflict", "expectation": "Two active versions for one domain fail closed." },
+  { "category": "canonical_hash_stability", "expectation": "Equivalent key order produces one canonical hash." },
+  { "category": "production_publish_no_write", "expectation": "A readiness failure happens before Prisma is constructed." }
+]

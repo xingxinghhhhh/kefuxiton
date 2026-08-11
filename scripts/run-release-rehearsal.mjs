@@ -1,19 +1,22 @@
 import { createHash } from 'node:crypto';
+import { mkdtemp, rm, symlink } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
-import { resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const requireFromApi = createRequire(new URL('../apps/api/package.json', import.meta.url));
 const { PrismaClient } = requireFromApi('@prisma/client');
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-const baselineCommit = process.env.REHEARSAL_BASELINE_COMMIT ?? '91942d9';
+const baselineCommit = process.env.REHEARSAL_BASELINE_COMMIT ?? 'a4645ab';
 const inputDatabaseUrl = process.env.DATABASE_URL;
 const schema = `release_rehearsal_${Date.now()}_${process.pid}`;
 const activeProcesses = new Set();
 let schemaCreated = false;
 let exitCode = 0;
+let baselineWorktreePath;
+let baselineWorktreeCreated = false;
 
 class RehearsalFailure extends Error {
   constructor(stage, code) {
@@ -71,10 +74,10 @@ async function findFreePort() {
   });
 }
 
-function runCommand(command, args, environment, timeoutMs, stage) {
+function runCommand(command, args, environment, timeoutMs, stage, workingDirectory = root) {
   return new Promise((resolveCommand) => {
     const child = spawn(command, args, {
-      cwd: root,
+      cwd: workingDirectory,
       env: environment,
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: process.platform === 'win32',
@@ -119,16 +122,18 @@ async function terminateProcess(child) {
   if (child.exitCode === null) throw new RehearsalFailure('process_stop', 4);
 }
 
-async function runStage(command, args, environment, timeoutMs, stage) {
-  const result = await runCommand(command, args, environment, timeoutMs, stage);
+async function runStage(command, args, environment, timeoutMs, stage, workingDirectory = root) {
+  const result = await runCommand(command, args, environment, timeoutMs, stage, workingDirectory);
   if (result.code !== 0) fail(stage, result.timedOut ? 3 : result.code === 4 ? 4 : 1);
   emit('stage_completed', { stage, status: 'passed' });
   return result.output;
 }
 
-async function startApi(environment, baseUrl, stage) {
-  const child = spawn(pnpmCommand, ['--filter', '@ai-agent/api', 'start'], {
-    cwd: root,
+async function startApi(environment, baseUrl, stage, workingDirectory = root) {
+  const command = workingDirectory === root ? pnpmCommand : process.execPath;
+  const args = workingDirectory === root ? ['--filter', '@ai-agent/api', 'start'] : ['apps/api/dist/main.js'];
+  const child = spawn(command, args, {
+    cwd: workingDirectory,
     env: environment,
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: process.platform === 'win32',
@@ -276,6 +281,26 @@ function assertSummaryUnchanged(before, after) {
   assert(before.relationDigest === after.relationDigest, 'rollback_data');
 }
 
+async function prepareBaselineWorktree() {
+  if (!/^[0-9a-f]{7,40}$/.test(baselineCommit)) fail('baseline_check', 2);
+  baselineWorktreePath = await mkdtemp(join(root, '.release-rehearsal-baseline-'));
+  await rm(baselineWorktreePath, { recursive: true, force: true });
+  const baselineWorktreeRef = relative(root, baselineWorktreePath);
+  const added = await runCommand('git', ['worktree', 'add', '--detach', baselineWorktreeRef, baselineCommit], process.env, 30_000, 'baseline_worktree_add');
+  if (added.code !== 0) fail('baseline_worktree_add', 1);
+  baselineWorktreeCreated = true;
+  await symlink(join(root, 'apps/api/node_modules'), join(baselineWorktreePath, 'apps/api/node_modules'), 'junction');
+  await symlink(join(root, 'packages/config/node_modules'), join(baselineWorktreePath, 'packages/config/node_modules'), 'junction');
+  await symlink(join(root, 'packages/contracts/node_modules'), join(baselineWorktreePath, 'packages/contracts/node_modules'), 'junction');
+  const baselineHead = await runCommand('git', ['rev-parse', 'HEAD'], process.env, 30_000, 'baseline_worktree_head', baselineWorktreePath);
+  const expectedHead = await runCommand('git', ['rev-parse', baselineCommit], process.env, 30_000, 'baseline_commit_resolve');
+  if (baselineHead.code !== 0 || expectedHead.code !== 0 || baselineHead.output.trim() !== expectedHead.output.trim()) fail('baseline_worktree_head', 1);
+  await runStage('.\\packages\\config\\node_modules\\.bin\\tsc.cmd', ['-p', 'packages/config/tsconfig.json'], process.env, 120_000, 'baseline_config_build', baselineWorktreePath);
+  await runStage('.\\packages\\contracts\\node_modules\\.bin\\tsc.cmd', ['-p', 'packages/contracts/tsconfig.json'], process.env, 120_000, 'baseline_contracts_build', baselineWorktreePath);
+  await runStage('.\\node_modules\\.bin\\nest.cmd', ['build'], process.env, 180_000, 'baseline_api_build', join(baselineWorktreePath, 'apps/api'));
+  return baselineWorktreePath;
+}
+
 const productionPort = process.env.REHEARSAL_API_PORT ? validatePort(process.env.REHEARSAL_API_PORT, 'input') : await findFreePort();
 const testApiPort = await findFreePort();
 const testWebPort = process.env.REHEARSAL_WEB_PORT ? validatePort(process.env.REHEARSAL_WEB_PORT, 'input') : await findFreePort();
@@ -315,8 +340,8 @@ if (!inputDatabaseUrl) {
     emit('stage_summary', { stage: 'migration', migrationCount: 8, migrationRef: `sha256:${shortHash(migrationOutput.replace(/\s+/g, ' '))}` });
 
     const fixtureEnvironment = { ...productionEnvironment, APP_ENV: 'test', STAFF_AUTH_MODE: 'deny', ALLOW_KNOWLEDGE_PUBLISH: '1' };
-    await runStage(pnpmCommand, ['--filter', '@ai-agent/api', 'run', 'knowledge:import', '../../tests/fixtures/release-rehearsal-published.md', '--status=published'], fixtureEnvironment, 60_000, 'fixture_import');
-    const publishGuard = await runCommand(pnpmCommand, ['--filter', '@ai-agent/api', 'run', 'knowledge:import', '../../tests/fixtures/release-rehearsal-published.md', '--status=published'], productionEnvironment, 30_000, 'production_publish_guard');
+    await runStage(pnpmCommand, ['--filter', '@ai-agent/api', 'run', 'knowledge:import', '../../tests/fixtures/release-rehearsal-published.md', '--status=published', '--readiness-manifest=../../config/business-readiness/synthetic-local-eval.json', '--readiness-target=local_eval'], fixtureEnvironment, 60_000, 'fixture_import');
+    const publishGuard = await runCommand(pnpmCommand, ['--filter', '@ai-agent/api', 'run', 'knowledge:import', '../../tests/fixtures/release-rehearsal-published.md', '--status=published', '--readiness-manifest=../../config/business-readiness/synthetic-local-eval.json', '--readiness-target=production'], productionEnvironment, 30_000, 'production_publish_guard');
     assert(publishGuard.code !== 0, 'production_publish_guard');
     emit('stage_completed', { stage: 'production_publish_guard', status: 'passed', result: 'denied' });
 
@@ -361,13 +386,12 @@ if (!inputDatabaseUrl) {
     await beforeRollbackPrisma.$disconnect();
     emit('stage_summary', { stage: 'before_rollback', ...beforeRollback });
 
-    const baselineCheck = await runCommand('git', ['diff', '--quiet', baselineCommit, '--', 'apps/api/src', 'apps/web', 'packages/config', 'packages/contracts', 'apps/api/prisma'], process.env, 30_000, 'baseline_check');
-    assert(baselineCheck.code === 0, 'baseline_check');
+    await prepareBaselineWorktree();
     emit('stage_completed', { stage: 'baseline_check', status: 'passed', baseline: baselineCommit });
 
     const rollbackEnvironment = { ...productionEnvironment, PORT: String(await findFreePort()) };
     const rollbackBaseUrl = `http://127.0.0.1:${rollbackEnvironment.PORT}`;
-    productionApi = await startApi(rollbackEnvironment, rollbackBaseUrl, 'rollback_api_start');
+    productionApi = await startApi(rollbackEnvironment, rollbackBaseUrl, 'rollback_api_start', baselineWorktreePath);
     assert(Boolean(productionIdentity?.conversationId && productionIdentity?.accessToken), 'rollback_read');
     const messages = await requestJson(rollbackBaseUrl, `/api/v1/conversations/${productionIdentity.conversationId}/messages`, {
       headers: { authorization: `Bearer ${productionIdentity.accessToken}` },
@@ -405,6 +429,23 @@ if (!inputDatabaseUrl) {
       } catch {
         exitCode = 5;
         emit('rehearsal_failed', { stage: 'cleanup', errorCode: 'CLEANUP_FAILED' });
+      }
+    }
+    if (baselineWorktreePath) {
+      const removed = baselineWorktreeCreated
+        ? await runCommand('git', ['worktree', 'remove', '--force', relative(root, baselineWorktreePath)], process.env, 30_000, 'baseline_worktree_cleanup')
+        : { code: 0 };
+      try {
+        await rm(baselineWorktreePath, { recursive: true, force: true });
+      } catch (error) {
+        exitCode = 5;
+        emit('rehearsal_failed', { stage: 'baseline_worktree_cleanup', errorCode: 'CLEANUP_FAILED' });
+      }
+      if (removed.code !== 0) {
+        exitCode = 5;
+        emit('rehearsal_failed', { stage: 'baseline_worktree_cleanup', errorCode: 'CLEANUP_FAILED' });
+      } else if (exitCode === 0) {
+        emit('stage_completed', { stage: 'baseline_worktree_cleanup', status: 'passed' });
       }
     }
     await admin.$disconnect();

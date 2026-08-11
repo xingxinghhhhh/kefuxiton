@@ -9,4 +9,6 @@
   { "id": "N12-08", "category": "rollback", "assertion": "N11 基线兼容产物在同一 schema 上完成读取校验" },
   { "id": "N12-09", "category": "owned_cleanup", "assertion": "只删除本次创建且严格校验过的 schema" },
   { "id": "N12-10", "category": "failure_codes", "assertion": "输入、超时、进程终止和清理失败有固定退出码" }
+  ,{ "id": "N12-11", "category": "baseline_clean_worktree", "assertion": "Detached baseline worktree keeps the current worktree untouched." }
+  ,{ "id": "N12-12", "category": "baseline_failure_closed", "assertion": "Invalid baseline, digest mismatch, or cleanup failure remains blocking." }
 ]

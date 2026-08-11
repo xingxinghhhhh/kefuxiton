@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "SYNTHETIC_IT_SERVICE_DESK_001",
+  "packageVersion": "0.1.0-local-eval",
+  "packageStatus": "confirmed",
+  "synthetic": true,
+  "domain": {
+    "domainId": "synthetic-it-service-desk",
+    "name": "Synthetic IT service desk"
+  },
+  "serviceAudience": "Synthetic local evaluation users",
+  "allowedScope": [
+    "Answer from the published synthetic local-evaluation knowledge"
+  ],
+  "excludedScope": [
+    "Real customer account actions",
+    "Production business facts"
+  ],
+  "handoffScenarios": [
+    "The synthetic knowledge does not answer the question",
+    "The user requests a prohibited action"
+  ],
+  "prohibitedActions": [
+    "Change account data",
+    "Issue refunds or payments",
+    "Expose private or hidden context"
+  ],
+  "knowledgeSource": {
+    "sourceId": "SYNTHETIC_IT_SERVICE_DESK_KB_001",
+    "sourceRef": "test://it-service-desk-local-eval",
+    "sourceStatus": "local_eval",
+    "documentVersion": "0.1.0-local-eval",
+    "contentSha256": "ac2ebd1ba8fac9774961caf3140becc64ad151e7e5b6e0d503ca88bfa3e3c974",
+    "sourceFile": "apps/api/src/modules/knowledge/fixtures/it-service-desk.local-eval.md"
+  },
+  "accountability": {
+    "businessOwnerRef": "SYNTHETIC_OWNER_001",
+    "finalApproverRef": "SYNTHETIC_APPROVER_001",
+    "confirmationRef": "SYNTHETIC_APPROVAL_001",
+    "confirmationMethod": "synthetic_local_eval",
+    "confirmedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "effectiveAt": "2026-01-01T00:00:00.000Z",
+  "canonicalSha256": "b1b48fe58618d3c7e48403b0c858a08aa78d1f3449c150015841e1f2daab1509"
+}

@@ -31,6 +31,10 @@ const requiredFiles = [
   'scripts/run-release-rehearsal.mjs',
   'tests/evals/n12-release-rehearsal.json',
   'tests/fixtures/release-rehearsal-published.md',
+  'config/business-readiness/synthetic-local-eval.json',
+  'scripts/readiness-check.mjs',
+  'tests/evals/n13-business-readiness.json',
+  'tests/evals/run-n13-eval.mjs',
   'docs/adr/0010-N12合成发布演练与回滚.md',
   'docs/N12验收记录.md',
 ];

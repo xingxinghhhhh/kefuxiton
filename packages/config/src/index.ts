@@ -264,3 +264,5 @@ export function getStaffAuthMode(environment: Environment): StaffAuthMode {
 export function isKnowledgePublishAllowed(environment: Environment): boolean {
   return environment.ALLOW_KNOWLEDGE_PUBLISH === '1';
 }
+
+export * from './business-readiness.js';
