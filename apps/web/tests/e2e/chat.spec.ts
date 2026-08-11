@@ -12,6 +12,12 @@ test('completes the safe mock chat flow', async ({ page }) => {
   await send.click();
   await expect(page.getByText('introduce this demo environment')).toBeVisible();
   await expect(page.locator('small').filter({ hasText: 'safe_unavailable' })).toBeVisible();
+  const helpful = page.getByRole('button', { name: '有帮助' }).last();
+  await helpful.click();
+  await expect(helpful).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('status').filter({ hasText: '反馈已记录' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button', { name: '有帮助' }).last()).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('customer handoff status disables automatic replies', async ({ page, request }) => {

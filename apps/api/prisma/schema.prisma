@@ -42,6 +42,7 @@ model Conversation {
   auditEvents     AuditEvent[]
   internalNotes   InternalNote[]
   conversationTags ConversationTag[]
+  messageFeedbacks MessageFeedback[]
 }
 
 model HandoffRequest {
@@ -145,7 +146,23 @@ model Message {
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   operatorReply  OperatorReply?
+  feedbacks      MessageFeedback[]
 
+  @@index([conversationId, createdAt])
+}
+
+model MessageFeedback {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  messageId      String       @db.Uuid
+  value          String       @db.VarChar(32)
+  idempotencyKey String       @db.VarChar(128)
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message        Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, messageId])
+  @@unique([conversationId, idempotencyKey])
   @@index([conversationId, createdAt])
 }
 

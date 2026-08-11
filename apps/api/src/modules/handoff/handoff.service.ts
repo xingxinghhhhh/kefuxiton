@@ -682,6 +682,7 @@ export class HandoffService {
       senderType: (message.senderType ?? (message.role === 'user' ? 'customer' : 'ai')) as MessageSenderType,
       citations: Array.isArray(message.citations) ? message.citations : [],
       createdAt: message.createdAt.toISOString(),
+      feedback: null,
     };
   }
 }

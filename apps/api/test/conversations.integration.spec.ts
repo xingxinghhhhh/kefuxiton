@@ -2,6 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { MockAgentAdapter } from '../src/modules/agent/mock-agent.adapter.js';
 import { ConversationsService } from '../src/modules/conversations/conversations.service.js';
 import { hashConversationToken } from '../src/modules/conversations/conversation-token.js';
+import { AuditService } from '../src/modules/audit/audit.service.js';
 
 describe('conversation persistence and isolation', () => {
   it('persists a user/agent pair and rejects a credential on another conversation', async () => {
@@ -44,6 +45,7 @@ describe('conversation persistence and isolation', () => {
       fakePrisma as never,
       new MockAgentAdapter(),
       { getConversationRequest: jest.fn(async () => null) } as never,
+      new AuditService(),
     );
 
     const result = await service.sendMessage(conversationId, 'valid-token', 'hello');

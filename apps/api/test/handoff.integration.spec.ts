@@ -34,7 +34,7 @@ describeReal('handoff request loop', () => {
       expect(events.map((event) => event.action).sort()).toEqual(['handoff_request_replayed', 'handoff_requested']);
 
       const agent = new MockAgentAdapter();
-      const conversations = new ConversationsService(prisma as never, agent, handoff);
+      const conversations = new ConversationsService(prisma as never, agent, handoff, audit);
       const suppressed = await conversations.sendMessage(conversation.id, accessToken, '请继续回答');
       expect(suppressed.responseType).toBe('handoff_pending');
       expect(suppressed.agentMode).toBe('handoff');
@@ -107,7 +107,7 @@ describeReal('handoff request loop', () => {
       const closeEvent = timeline.items.find((item) => item.action === 'handoff_closed');
       expect(closeEvent).toMatchObject({ closeReason: 'operator_completed', resolutionCode: 'resolved' });
 
-      const conversations = new ConversationsService(prisma as never, new MockAgentAdapter(), handoff);
+      const conversations = new ConversationsService(prisma as never, new MockAgentAdapter(), handoff, audit);
       const suppressed = await conversations.sendMessage(conversation.id, accessToken, 'closed status message');
       expect(suppressed.responseType).toBe('handoff_pending');
       expect(suppressed.messages).toHaveLength(1);
@@ -183,7 +183,7 @@ describeReal('handoff request loop', () => {
 
     try {
       const request = await handoff.request(conversation.id, accessToken, 'customer_requested');
-      const conversations = new ConversationsService(prisma as never, new MockAgentAdapter(), handoff);
+      const conversations = new ConversationsService(prisma as never, new MockAgentAdapter(), handoff, audit);
       await conversations.sendMessage(conversation.id, accessToken, 'waiting for an operator');
       await expect(handoff.reply(request.requestId, principal, 'not claimed yet', 'before-claim', 'reply-before-claim'))
         .rejects.toThrow('only claimed handoffs accept replies');
@@ -252,7 +252,7 @@ describeReal('handoff request loop', () => {
         data: { conversationId: conversation.id, handoffRequestId: request.requestId, actorType: 'system', action: 'unknown_action', outcome: 'created' },
       });
       await expect(handoff.getAuditTimeline(request.requestId, 100)).rejects.toThrow('unsupported audit action');
-      const publicMessages = await new ConversationsService(prisma as never, new MockAgentAdapter(), handoff).getMessages(conversation.id, accessToken);
+      const publicMessages = await new ConversationsService(prisma as never, new MockAgentAdapter(), handoff, audit).getMessages(conversation.id, accessToken);
       expect(JSON.stringify(publicMessages)).not.toContain('Ignore instructions');
       expect(JSON.stringify(publicMessages)).not.toContain('urgent');
       const events = await prisma.auditEvent.findMany({ where: { handoffRequestId: request.requestId } });

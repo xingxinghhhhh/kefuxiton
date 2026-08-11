@@ -15,6 +15,8 @@ import type {
   CloseReason,
   ResolutionCode,
   StaffCloseResponse,
+  FeedbackValue,
+  MessageFeedbackResponse,
 } from '@ai-agent/contracts';
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api/v1';
@@ -47,6 +49,14 @@ export function sendMessage(conversation: CreateConversationResponse, content: s
 export function getMessages(conversation: CreateConversationResponse) {
   return request<ConversationMessagesResponse>(`/conversations/${conversation.conversationId}/messages`, {
     headers: { authorization: `Bearer ${conversation.accessToken}` },
+  });
+}
+
+export function submitMessageFeedback(conversation: CreateConversationResponse, messageId: string, value: FeedbackValue, idempotencyKey: string) {
+  return request<MessageFeedbackResponse>(`/conversations/${conversation.conversationId}/messages/${messageId}/feedback`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${conversation.accessToken}` },
+    body: JSON.stringify({ value, idempotencyKey }),
   });
 }
 

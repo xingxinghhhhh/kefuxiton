@@ -3,9 +3,10 @@ import { AgentModule } from '../agent/agent.module.js';
 import { ConversationsController } from './conversations.controller.js';
 import { ConversationsService } from './conversations.service.js';
 import { HandoffModule } from '../handoff/handoff.module.js';
+import { AuditModule } from '../audit/audit.module.js';
 
 @Module({
-  imports: [AgentModule, HandoffModule],
+  imports: [AgentModule, HandoffModule, AuditModule],
   controllers: [ConversationsController],
   providers: [ConversationsService],
 })

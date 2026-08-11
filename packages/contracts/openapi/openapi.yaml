@@ -123,6 +123,39 @@ paths:
           description: Current handoff request or null
         '401':
           description: Invalid conversation credentials
+  /conversations/{conversationId}/messages/{messageId}/feedback:
+    post:
+      operationId: submitMessageFeedback
+      parameters:
+        - in: path
+          name: conversationId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: messageId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Authorization
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageFeedbackRequest'
+      responses:
+        '201':
+          description: Fixed synthetic/local-evaluation feedback recorded or idempotently replayed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageFeedbackResponse'
+        '400': { description: Invalid feedback value or idempotency key }
+        '401': { description: Invalid conversation credentials }
+        '403': { description: Message is not a public feedback target }
+        '409': { description: Feedback or idempotency conflict }
   /staff/handoff-requests:
     get:
       operationId: listStaffHandoffRequests
@@ -443,7 +476,7 @@ components:
         messages: { type: array, items: { $ref: '#/components/schemas/MessageView' } }
     MessageView:
       type: object
-      required: [id, role, content, responseType, agentMode, senderType, citations, createdAt]
+      required: [id, role, content, responseType, agentMode, senderType, citations, createdAt, feedback]
       properties:
         id: { type: string, format: uuid }
         role: { type: string, enum: [user, agent] }
@@ -453,6 +486,30 @@ components:
         senderType: { type: string, enum: [customer, ai, human_operator, system] }
         citations: { type: array, items: { $ref: '#/components/schemas/Citation' } }
         createdAt: { type: string, format: date-time }
+        feedback: { allOf: [{ $ref: '#/components/schemas/MessageFeedbackSummary' }], nullable: true }
+    MessageFeedbackRequest:
+      type: object
+      required: [value, idempotencyKey]
+      additionalProperties: false
+      properties:
+        value: { type: string, enum: [helpful, not_helpful], description: Synthetic/local-evaluation label only; not a formal satisfaction policy. }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+    MessageFeedbackSummary:
+      type: object
+      required: [value, submittedAt]
+      properties:
+        value: { type: string, enum: [helpful, not_helpful] }
+        submittedAt: { type: string, format: date-time }
+    MessageFeedbackResponse:
+      type: object
+      required: [feedbackId, conversationId, messageId, value, status, idempotent]
+      properties:
+        feedbackId: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        messageId: { type: string, format: uuid }
+        value: { type: string, enum: [helpful, not_helpful] }
+        status: { type: string, enum: [recorded, replayed, already_recorded] }
+        idempotent: { type: boolean }
     StaffReplyRequest:
       type: object
       required: [content, idempotencyKey]

@@ -17,7 +17,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = context.getResponse<Response>();
     const request = context.getRequest<RequestWithId>();
     const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
-    const code = this.codeFor(status);
+    const code = this.codeFor(status, exception);
     const requestId = request.requestId ?? randomUUID();
     const message = status >= 500 ? '服务暂时不可用，请稍后重试。' : this.safeMessage(exception);
 
@@ -26,7 +26,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     });
   }
 
-  private codeFor(status: number) {
+  private codeFor(status: number, exception: unknown) {
+    if (exception instanceof HttpException) {
+      const payload = exception.getResponse();
+      if (payload && typeof payload === 'object' && 'code' in payload && typeof payload.code === 'string') {
+        return payload.code;
+      }
+    }
     if (status === HttpStatus.BAD_REQUEST) return 'VALIDATION_ERROR';
     if (status === HttpStatus.UNAUTHORIZED) return 'CONVERSATION_ACCESS_DENIED';
     if (status === HttpStatus.NOT_FOUND) return 'NOT_FOUND';

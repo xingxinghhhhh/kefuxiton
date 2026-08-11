@@ -1,8 +1,8 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import type { CreateConversationResponse, HandoffRequestStatus, MessageView, SendMessageResponse } from '@ai-agent/contracts';
-import { createConversation, getHandoffStatus, getMessages, requestHandoff, sendMessage } from '../../lib/api-client';
+import type { CreateConversationResponse, FeedbackValue, HandoffRequestStatus, MessageView, SendMessageResponse } from '@ai-agent/contracts';
+import { createConversation, getHandoffStatus, getMessages, requestHandoff, sendMessage, submitMessageFeedback } from '../../lib/api-client';
 
 export function ChatShell() {
   const [conversation, setConversation] = useState<CreateConversationResponse | null>(null);
@@ -13,6 +13,8 @@ export function ChatShell() {
   const [handoffRecommended, setHandoffRecommended] = useState(false);
   const [handoffStatus, setHandoffStatus] = useState<HandoffRequestStatus | null>(null);
   const [handoffError, setHandoffError] = useState('');
+  const [feedbackSubmittingId, setFeedbackSubmittingId] = useState<string | null>(null);
+  const [feedbackNotice, setFeedbackNotice] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const stored = window.sessionStorage.getItem('ai-agent-conversation');
@@ -33,11 +35,13 @@ export function ChatShell() {
 
   async function restoreHandoffStatus(storedConversation: CreateConversationResponse) {
     try {
-      const [handoff, history] = await Promise.all([
-        getHandoffStatus(storedConversation),
-        getMessages(storedConversation),
-      ]);
+      const history = await getMessages(storedConversation);
       setMessages(history.messages);
+    } catch {
+      setError('暂时无法读取消息历史，请稍后刷新。');
+    }
+    try {
+      const handoff = await getHandoffStatus(storedConversation);
       setHandoffStatus(handoff?.status ?? null);
       setHandoffRecommended(handoff?.status !== undefined && handoff?.status !== null && handoff.status !== 'closed');
     } catch {
@@ -93,6 +97,25 @@ export function ChatShell() {
     }
   }
 
+  async function onFeedback(message: MessageView, value: FeedbackValue) {
+    if (!conversation || message.feedback || feedbackSubmittingId) return;
+    setFeedbackSubmittingId(message.id);
+    setFeedbackNotice((current) => ({ ...current, [message.id]: '' }));
+    try {
+      const result = await submitMessageFeedback(conversation, message.id, value, `feedback-${message.id}`);
+      setMessages((current) => current.map((item) => item.id === message.id ? {
+        ...item,
+        feedback: { value: result.value, submittedAt: new Date().toISOString() },
+      } : item));
+      const notice = result.status === 'recorded' ? '反馈已记录。' : result.status === 'replayed' ? '反馈已确认。' : '该消息已记录过反馈。';
+      setFeedbackNotice((current) => ({ ...current, [message.id]: notice }));
+    } catch {
+      setFeedbackNotice((current) => ({ ...current, [message.id]: '反馈提交失败，请重试。' }));
+    } finally {
+      setFeedbackSubmittingId(null);
+    }
+  }
+
   return (
     <main className="page-shell">
       <section className="chat-card" aria-labelledby="chat-title">
@@ -127,6 +150,28 @@ export function ChatShell() {
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+              {message.role === 'agent' && (message.senderType === 'ai' || message.senderType === 'human_operator') && message.responseType !== 'handoff_pending' && (
+                <div className="message-feedback" aria-label="消息反馈">
+                  <span>这条回复有帮助吗？</span>
+                  <button
+                    type="button"
+                    aria-pressed={message.feedback?.value === 'helpful'}
+                    disabled={Boolean(message.feedback) || feedbackSubmittingId !== null}
+                    onClick={() => void onFeedback(message, 'helpful')}
+                  >
+                    有帮助
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={message.feedback?.value === 'not_helpful'}
+                    disabled={Boolean(message.feedback) || feedbackSubmittingId !== null}
+                    onClick={() => void onFeedback(message, 'not_helpful')}
+                  >
+                    没帮助
+                  </button>
+                  {feedbackNotice[message.id] && <small role="status">{feedbackNotice[message.id]}</small>}
                 </div>
               )}
             </article>

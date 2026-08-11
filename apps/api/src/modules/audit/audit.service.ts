@@ -20,8 +20,11 @@ export interface AuditRecordInput {
     | 'conversation_tag_added'
     | 'conversation_tag_add_replayed'
     | 'conversation_tag_removed'
-    | 'conversation_tag_remove_replayed';
-  outcome: 'created' | 'replayed' | 'claimed' | 'closed' | 'removed';
+    | 'conversation_tag_remove_replayed'
+    | 'message_feedback_created'
+    | 'message_feedback_replayed'
+    | 'message_feedback_conflict';
+  outcome: 'created' | 'replayed' | 'claimed' | 'closed' | 'removed' | 'conflict';
   metadata?: Record<string, string>;
 }
 

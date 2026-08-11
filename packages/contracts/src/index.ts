@@ -4,6 +4,9 @@ export type AgentMode = 'mock' | 'deterministic_knowledge' | 'handoff' | 'human_
 export type ResponseType = 'safe_unavailable' | 'knowledge_answer' | 'handoff_recommended' | 'handoff_requested' | 'handoff_pending' | 'human_reply' | 'mock_fallback';
 export type HandoffRequestStatus = 'requested' | 'claimed' | 'closed';
 export type MessageSenderType = 'customer' | 'ai' | 'human_operator' | 'system';
+export const FEEDBACK_VALUES = ['helpful', 'not_helpful'] as const;
+export type FeedbackValue = typeof FEEDBACK_VALUES[number];
+export type FeedbackStatus = 'recorded' | 'replayed' | 'already_recorded';
 export type StaffPermission = 'handoff:read' | 'handoff:claim' | 'handoff:close' | 'handoff:reply' | 'handoff:context' | 'conversation:read';
 export type InternalTag = 'urgent' | 'billing' | 'technical' | 'follow_up';
 export const CLOSE_REASONS = [
@@ -67,6 +70,26 @@ export interface MessageView {
   senderType: MessageSenderType;
   citations: Citation[];
   createdAt: string;
+  feedback: MessageFeedbackSummary | null;
+}
+
+export interface MessageFeedbackSummary {
+  value: FeedbackValue;
+  submittedAt: string;
+}
+
+export interface MessageFeedbackRequest {
+  value: FeedbackValue;
+  idempotencyKey: string;
+}
+
+export interface MessageFeedbackResponse {
+  feedbackId: string;
+  conversationId: string;
+  messageId: string;
+  value: FeedbackValue;
+  status: FeedbackStatus;
+  idempotent: boolean;
 }
 
 export interface SendMessageResponse {

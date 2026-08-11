@@ -166,6 +166,24 @@ try {
   assert(sent.body.citations?.length === 1, 'published answer must return a real citation');
   assert(sent.body.citations[0].version === 'v1.0.0-test-only', 'citation must identify the published version');
 
+  const assistantMessageId = sent.body.assistantMessageId;
+  const feedback = await requestJson(`/api/v1/conversations/${conversationId}/messages/${assistantMessageId}/feedback`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ value: 'helpful', idempotencyKey: 'smoke-feedback-1' }),
+  });
+  assert(feedback.response.status === 201 && feedback.body.status === 'recorded', 'customer feedback must be recorded');
+  const feedbackReplay = await requestJson(`/api/v1/conversations/${conversationId}/messages/${assistantMessageId}/feedback`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ value: 'helpful', idempotencyKey: 'smoke-feedback-1' }),
+  });
+  assert(feedbackReplay.body.status === 'replayed', 'customer feedback replay must be idempotent');
+  const feedbackHistory = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  assert(feedbackHistory.body.messages?.find((message) => message.id === assistantMessageId)?.feedback?.value === 'helpful', 'feedback must survive history refresh');
+
   const unknown = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },

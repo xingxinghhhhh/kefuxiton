@@ -95,6 +95,48 @@ describeReal('real PostgreSQL integration', () => {
     expect(history.body.messages).toHaveLength(2);
     expect(history.body.messages.map((message: { senderType: string }) => message.senderType)).toEqual(['customer', 'ai']);
 
+    const assistantMessageId = sent.body.assistantMessageId;
+    const feedback = await request(app.getHttpServer())
+      .post(`/api/v1/conversations/${conversationId}/messages/${assistantMessageId}/feedback`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ value: 'helpful', idempotencyKey: 'feedback-real-1' })
+      .expect(201);
+    expect(feedback.body).toMatchObject({ conversationId, messageId: assistantMessageId, value: 'helpful', status: 'recorded', idempotent: false });
+    await request(app.getHttpServer())
+      .post(`/api/v1/conversations/${conversationId}/messages/${assistantMessageId}/feedback`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ value: 'helpful', idempotencyKey: 'feedback-real-1' })
+      .expect(201)
+      .then((response) => expect(response.body.status).toBe('replayed'));
+    await request(app.getHttpServer())
+      .post(`/api/v1/conversations/${conversationId}/messages/${assistantMessageId}/feedback`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ value: 'helpful', idempotencyKey: 'feedback-real-2' })
+      .expect(201)
+      .then((response) => expect(response.body.status).toBe('already_recorded'));
+    await request(app.getHttpServer())
+      .post(`/api/v1/conversations/${conversationId}/messages/${assistantMessageId}/feedback`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ value: 'not_helpful', idempotencyKey: 'feedback-real-3' })
+      .expect(409)
+      .then((response) => expect(response.body.error.code).toBe('FEEDBACK_CONFLICT'));
+    await request(app.getHttpServer())
+      .post(`/api/v1/conversations/${conversationId}/messages/${sent.body.messages[0].id}/feedback`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ value: 'helpful', idempotencyKey: 'feedback-real-user' })
+      .expect(403)
+      .then((response) => expect(response.body.error.code).toBe('FEEDBACK_NOT_ALLOWED'));
+
+    const historyWithFeedback = await request(app.getHttpServer())
+      .get(`/api/v1/conversations/${conversationId}/messages`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(historyWithFeedback.body.messages.find((message: { id: string }) => message.id === assistantMessageId).feedback)
+      .toMatchObject({ value: 'helpful' });
+    const feedbackEvents = await prisma.auditEvent.findMany({ where: { conversationId, action: { startsWith: 'message_feedback_' } } });
+    expect(feedbackEvents.length).toBe(4);
+    expect(feedbackEvents.every((event) => JSON.stringify(event.metadata ?? {}).includes('How can I access'))).toBe(false);
+
     await request(app.getHttpServer())
       .get(`/api/v1/conversations/${secondConversationId}/messages`)
       .set('Authorization', `Bearer ${token}`)
@@ -123,5 +165,11 @@ describeReal('real PostgreSQL integration', () => {
       .send({ content: 'How can I access the office system after restart?' })
       .expect(201);
     expect(afterRestart.body.responseType).toBe('knowledge_answer');
+    await request(app.getHttpServer())
+      .post(`/api/v1/conversations/${conversationId}/messages/${afterRestart.body.assistantMessageId}/feedback`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ value: 'not_helpful', idempotencyKey: 'feedback-real-1' })
+      .expect(409)
+      .then((response) => expect(response.body.error.code).toBe('IDEMPOTENCY_KEY_REUSED'));
   });
 });

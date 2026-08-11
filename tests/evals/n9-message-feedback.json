@@ -1,0 +1,13 @@
+[
+  { "category": "fixed_values", "expectation": "Feedback uses only helpful and not_helpful synthetic labels." },
+  { "category": "public_ai", "expectation": "A customer can rate a public AI answer, including safe refusal." },
+  { "category": "public_human", "expectation": "A customer can rate a public human Operator reply." },
+  { "category": "message_boundary", "expectation": "Customer, system, handoff-pending, missing, and cross-session messages are rejected." },
+  { "category": "one_per_message", "expectation": "A message has one immutable feedback record." },
+  { "category": "idempotency", "expectation": "Same key replays and a new key on the same value returns already_recorded." },
+  { "category": "conflicts", "expectation": "Different values and reused keys are rejected without overwriting the first record." },
+  { "category": "audit", "expectation": "Create, replay, and conflict outcomes are audited with fixed identifiers only." },
+  { "category": "refresh", "expectation": "Public message history restores feedback state." },
+  { "category": "no_side_effects", "expectation": "Feedback does not invoke AI, retrieval, handoff, or external writes." },
+  { "category": "synthetic_scope", "expectation": "Labels are local evaluation signals, not a formal satisfaction policy." }
+]
