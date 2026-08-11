@@ -239,6 +239,12 @@ try {
     headers: { authorization: `Staff ${staffToken}` },
   });
   assert(claimReplay.body.status === 'claimed' && claimReplay.body.idempotent === true, 'staff claim must be idempotent');
+  const incompleteClose = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/close`, {
+    method: 'POST',
+    headers: { authorization: `Staff ${staffToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ closeReason: 'operator_completed' }),
+  });
+  assert(incompleteClose.response.status === 400, 'close must reject a partial structured outcome');
 
   const humanReply = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/replies`, {
     method: 'POST',
@@ -314,14 +320,23 @@ try {
 
   const close = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/close`, {
     method: 'POST',
-    headers: { authorization: `Staff ${staffToken}` },
+    headers: { authorization: `Staff ${staffToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ closeReason: 'operator_completed', resolutionCode: 'resolved' }),
   });
   assert(close.body.status === 'closed' && close.body.idempotent === false, 'staff close must transition once');
+  assert(close.body.closeReason === 'operator_completed' && close.body.resolutionCode === 'resolved', 'staff close must persist the structured outcome');
   const closeReplay = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/close`, {
     method: 'POST',
-    headers: { authorization: `Staff ${staffToken}` },
+    headers: { authorization: `Staff ${staffToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ closeReason: 'operator_completed', resolutionCode: 'resolved' }),
   });
   assert(closeReplay.body.status === 'closed' && closeReplay.body.idempotent === true, 'staff close must be idempotent');
+  assert(closeReplay.body.closeReason === 'operator_completed' && closeReplay.body.resolutionCode === 'resolved', 'close replay must return the first outcome');
+  const closedTimeline = await requestJson(`/api/v1/staff/handoff-requests/${handoff.body.requestId}/timeline`, {
+    headers: { authorization: `Staff ${staffToken}` },
+  });
+  const closedEvent = closedTimeline.body.items?.find((item) => item.action === 'handoff_closed');
+  assert(closedEvent?.closeReason === 'operator_completed' && closedEvent?.resolutionCode === 'resolved', 'timeline must project the structured close outcome');
 
   const closedMessage = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
     method: 'POST',

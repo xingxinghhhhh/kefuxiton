@@ -6,6 +6,19 @@ export type HandoffRequestStatus = 'requested' | 'claimed' | 'closed';
 export type MessageSenderType = 'customer' | 'ai' | 'human_operator' | 'system';
 export type StaffPermission = 'handoff:read' | 'handoff:claim' | 'handoff:close' | 'handoff:reply' | 'handoff:context' | 'conversation:read';
 export type InternalTag = 'urgent' | 'billing' | 'technical' | 'follow_up';
+export const CLOSE_REASONS = [
+  'operator_completed',
+  'customer_requested_close',
+  'duplicate_request',
+  'out_of_scope',
+  'unable_to_resolve',
+] as const;
+export type CloseReason = typeof CLOSE_REASONS[number];
+export const RESOLUTION_CODES = ['resolved', 'partially_resolved', 'unresolved', 'no_action_required'] as const;
+export type ResolutionCode = typeof RESOLUTION_CODES[number];
+export const LEGACY_UNCLASSIFIED = 'legacy_unclassified' as const;
+export type StoredCloseReason = CloseReason | typeof LEGACY_UNCLASSIFIED;
+export type StoredResolutionCode = ResolutionCode | typeof LEGACY_UNCLASSIFIED;
 export type TimelineAction =
   | 'handoff_requested'
   | 'handoff_request_replayed'
@@ -86,6 +99,14 @@ export interface HandoffActionResponse {
   idempotent: boolean;
 }
 
+export interface StaffCloseResponse {
+  requestId: string;
+  status: 'closed';
+  closeReason: StoredCloseReason | null;
+  resolutionCode: StoredResolutionCode | null;
+  idempotent: boolean;
+}
+
 export interface ConversationMessagesResponse {
   conversationId: string;
   messages: MessageView[];
@@ -128,6 +149,8 @@ export interface StaffAuditTimelineItem {
   subjectType: TimelineSubjectType;
   subjectRef: string | null;
   tag: InternalTag | null;
+  closeReason: StoredCloseReason | null;
+  resolutionCode: StoredResolutionCode | null;
 }
 
 export interface StaffAuditTimelineResponse {
@@ -155,6 +178,8 @@ export interface StaffHandoffRequest {
   claimedBy: string | null;
   claimedAt: string | null;
   closedAt: string | null;
+  closeReason: StoredCloseReason | null;
+  resolutionCode: StoredResolutionCode | null;
   recentMessages: StaffHandoffMessage[];
 }
 

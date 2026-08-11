@@ -6,6 +6,7 @@ import { SendStaffReplyDto } from './dto/send-staff-reply.dto.js';
 import { CreateInternalNoteDto } from './dto/create-internal-note.dto.js';
 import { INTERNAL_TAGS, UpdateInternalTagDto } from './dto/update-internal-tag.dto.js';
 import { ListAuditTimelineDto } from './dto/list-audit-timeline.dto.js';
+import { CloseHandoffDto } from './dto/close-handoff.dto.js';
 
 @Controller('staff/handoff-requests')
 export class StaffHandoffController {
@@ -58,9 +59,16 @@ export class StaffHandoffController {
     @Headers('authorization') authorization: string | undefined,
     @Headers('x-request-id') requestIdHeader: string | undefined,
     @Param('requestId') requestId: string,
+    @Body() body: CloseHandoffDto | undefined,
   ) {
     const principal = this.staffAuth.require(authorization, 'handoff:close');
-    return this.handoff.close(requestId, principal, requestIdHeader ?? 'staff-close');
+    return this.handoff.close(
+      requestId,
+      principal,
+      requestIdHeader ?? 'staff-close',
+      body?.closeReason,
+      body?.resolutionCode,
+    );
   }
 
   @Post(':requestId/replies')

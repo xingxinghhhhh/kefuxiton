@@ -1,0 +1,14 @@
+[
+  { "category": "fixed_close_reason", "expectation": "Close reasons use a fixed server allowlist." },
+  { "category": "fixed_resolution", "expectation": "Resolution codes use a fixed server allowlist." },
+  { "category": "pair_validation", "expectation": "Only both fields or a completely empty legacy request are accepted." },
+  { "category": "legacy_compatibility", "expectation": "An old empty close request stores legacy_unclassified without guessing." },
+  { "category": "idempotent_replay", "expectation": "A replay returns the first stored outcome." },
+  { "category": "conflict_protection", "expectation": "A different replay cannot overwrite a closed outcome." },
+  { "category": "historical_null", "expectation": "Pre-N8 closed rows remain null." },
+  { "category": "owner_boundary", "expectation": "Only the claiming Operator may close or replay close." },
+  { "category": "audit_projection", "expectation": "Structured outcome is audited and safely projected into the timeline." },
+  { "category": "customer_isolation", "expectation": "Customer APIs do not expose close outcomes." },
+  { "category": "ai_suppression", "expectation": "Closing keeps automatic AI replies suppressed." },
+  { "category": "synthetic_scope", "expectation": "Values are local synthetic rules, not production policy." }
+]

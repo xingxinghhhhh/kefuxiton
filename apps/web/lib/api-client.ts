@@ -12,6 +12,9 @@ import type {
   StaffHandoffListResponse,
   SendMessageRequest,
   SendMessageResponse,
+  CloseReason,
+  ResolutionCode,
+  StaffCloseResponse,
 } from '@ai-agent/contracts';
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api/v1';
@@ -75,10 +78,11 @@ export function claimStaffHandoff(staffToken: string, requestId: string) {
   });
 }
 
-export function closeStaffHandoff(staffToken: string, requestId: string) {
-  return request<HandoffActionResponse>(`/staff/handoff-requests/${requestId}/close`, {
+export function closeStaffHandoff(staffToken: string, requestId: string, closeReason: CloseReason, resolutionCode: ResolutionCode) {
+  return request<StaffCloseResponse>(`/staff/handoff-requests/${requestId}/close`, {
     method: 'POST',
     headers: { authorization: `Staff ${staffToken}` },
+    body: JSON.stringify({ closeReason, resolutionCode }),
   });
 }
 

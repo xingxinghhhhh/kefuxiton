@@ -204,9 +204,21 @@ paths:
           name: Authorization
           required: true
           schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseHandoffRequest'
       responses:
         '201':
           description: Closed handoff request, idempotently
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffCloseResponse'
+        '400':
+          description: Missing one outcome field or unsupported enum
         '401':
           description: Missing or invalid staff identity
         '403':
@@ -507,7 +519,7 @@ components:
           type: array
           items:
             type: object
-            required: [eventId, occurredAt, actorType, actorRef, action, result, subjectType, subjectRef, tag]
+            required: [eventId, occurredAt, actorType, actorRef, action, result, subjectType, subjectRef, tag, closeReason, resolutionCode]
             properties:
               eventId: { type: string, format: uuid }
               occurredAt: { type: string, format: date-time }
@@ -520,6 +532,8 @@ components:
               subjectType: { type: string, enum: [handoff_request, message, internal_note, conversation_tag] }
               subjectRef: { type: string, nullable: true }
               tag: { type: string, nullable: true, enum: [urgent, billing, technical, follow_up] }
+              closeReason: { type: string, nullable: true, enum: [operator_completed, customer_requested_close, duplicate_request, out_of_scope, unable_to_resolve, legacy_unclassified] }
+              resolutionCode: { type: string, nullable: true, enum: [resolved, partially_resolved, unresolved, no_action_required, legacy_unclassified] }
     HandoffRequestResponse:
       type: object
       required: [conversationId, requestId, status, reasonCode, requestedAt, updatedAt, idempotent]
@@ -540,6 +554,21 @@ components:
         requestId: { type: string, format: uuid }
         status: { type: string, enum: [requested, claimed, closed] }
         idempotent: { type: boolean }
+    CloseHandoffRequest:
+      type: object
+      description: New clients provide both fields. An empty body is accepted only for legacy compatibility and is stored as legacy_unclassified.
+      properties:
+        closeReason: { type: string, enum: [operator_completed, customer_requested_close, duplicate_request, out_of_scope, unable_to_resolve] }
+        resolutionCode: { type: string, enum: [resolved, partially_resolved, unresolved, no_action_required] }
+    StaffCloseResponse:
+      type: object
+      required: [requestId, status, closeReason, resolutionCode, idempotent]
+      properties:
+        requestId: { type: string, format: uuid }
+        status: { type: string, enum: [closed] }
+        closeReason: { type: string, nullable: true, enum: [operator_completed, customer_requested_close, duplicate_request, out_of_scope, unable_to_resolve, legacy_unclassified] }
+        resolutionCode: { type: string, nullable: true, enum: [resolved, partially_resolved, unresolved, no_action_required, legacy_unclassified] }
+        idempotent: { type: boolean }
     StaffHandoffListResponse:
       type: object
       required: [items]
@@ -550,7 +579,7 @@ components:
             $ref: '#/components/schemas/StaffHandoffRequest'
     StaffHandoffRequest:
       type: object
-      required: [requestId, conversationId, status, reasonCode, requestedAt, updatedAt, claimedBy, claimedAt, closedAt, recentMessages]
+      required: [requestId, conversationId, status, reasonCode, requestedAt, updatedAt, claimedBy, claimedAt, closedAt, closeReason, resolutionCode, recentMessages]
       properties:
         requestId: { type: string, format: uuid }
         conversationId: { type: string, format: uuid }
@@ -561,6 +590,8 @@ components:
         claimedBy: { type: string, nullable: true }
         claimedAt: { type: string, format: date-time, nullable: true }
         closedAt: { type: string, format: date-time, nullable: true }
+        closeReason: { type: string, nullable: true, enum: [operator_completed, customer_requested_close, duplicate_request, out_of_scope, unable_to_resolve, legacy_unclassified] }
+        resolutionCode: { type: string, nullable: true, enum: [resolved, partially_resolved, unresolved, no_action_required, legacy_unclassified] }
         recentMessages:
           type: array
           items:

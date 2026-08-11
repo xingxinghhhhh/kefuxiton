@@ -74,7 +74,9 @@ test('staff queue enforces access, claims, and closes a handoff', async ({ page,
   await expect(claimedCard).toContainText('urgent');
   await expect(claimedCard.getByRole('heading', { name: 'Audit timeline' })).toBeVisible();
   await expect(claimedCard.getByRole('list').last()).toContainText('handoff_claimed');
-  await claimedCard.locator('button').last().click();
+  await claimedCard.locator('select[id^="close-reason-"]').selectOption('operator_completed');
+  await claimedCard.locator('select[id^="resolution-"]').selectOption('resolved');
+  await claimedCard.getByRole('button', { name: '关闭接管' }).click();
 
   await page.locator('#handoff-status-filter').selectOption('closed');
   await expect(page.locator('.message-list article').filter({ hasText: conversation.conversationId })).toContainText('closed');

@@ -1,13 +1,30 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import type { HandoffRequestStatus, InternalTag, StaffAuditTimelineResponse, StaffHandoffRequest, StaffInternalContextResponse } from '@ai-agent/contracts';
+import { CLOSE_REASONS, RESOLUTION_CODES, type CloseReason, type HandoffRequestStatus, type InternalTag, type ResolutionCode, type StaffAuditTimelineResponse, type StaffHandoffRequest, type StaffInternalContextResponse } from '@ai-agent/contracts';
 import { addStaffInternalNote, addStaffInternalTag, claimStaffHandoff, closeStaffHandoff, getStaffAuditTimeline, getStaffInternalContext, listStaffHandoffs, removeStaffInternalTag, sendStaffReply } from '../../lib/api-client';
 
 type DraftMap = Record<string, string>;
 type KeyMap = Record<string, string>;
 type ContextMap = Record<string, StaffInternalContextResponse>;
 type TimelineMap = Record<string, StaffAuditTimelineResponse>;
+type CloseReasonDraftMap = Record<string, CloseReason | ''>;
+type ResolutionDraftMap = Record<string, ResolutionCode | ''>;
+
+const CLOSE_REASON_LABELS: Record<CloseReason, string> = {
+  operator_completed: 'Operator 已完成处理（合成）',
+  customer_requested_close: '客户主动结束（合成）',
+  duplicate_request: '重复请求（合成）',
+  out_of_scope: '超出范围（合成）',
+  unable_to_resolve: '暂未解决（合成）',
+};
+
+const RESOLUTION_LABELS: Record<ResolutionCode, string> = {
+  resolved: '已解决（合成）',
+  partially_resolved: '部分解决（合成）',
+  unresolved: '未解决（合成）',
+  no_action_required: '无需处理（合成）',
+};
 
 function createIdempotencyKey() {
   return globalThis.crypto?.randomUUID?.() ?? `reply-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -22,6 +39,8 @@ export function StaffHandoffShell() {
   const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [contexts, setContexts] = useState<ContextMap>({});
   const [timelines, setTimelines] = useState<TimelineMap>({});
+  const [closeReasonDrafts, setCloseReasonDrafts] = useState<CloseReasonDraftMap>({});
+  const [resolutionDrafts, setResolutionDrafts] = useState<ResolutionDraftMap>({});
   const [noteDrafts, setNoteDrafts] = useState<DraftMap>({});
   const [tagDrafts, setTagDrafts] = useState<Record<string, InternalTag>>({});
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -52,16 +71,33 @@ export function StaffHandoffShell() {
     }
   }
 
-  async function updateRequest(request: StaffHandoffRequest, action: 'claim' | 'close') {
+  async function updateRequest(request: StaffHandoffRequest, action: 'claim') {
     setError('');
     try {
-      if (action === 'claim') await claimStaffHandoff(staffToken.trim(), request.requestId);
-      else await closeStaffHandoff(staffToken.trim(), request.requestId);
-      const nextStatus: HandoffRequestStatus = action === 'claim' ? 'claimed' : 'closed';
+      await claimStaffHandoff(staffToken.trim(), request.requestId);
+      const nextStatus: HandoffRequestStatus = 'claimed';
       setQueueStatus(nextStatus);
       await loadQueue(nextStatus);
     } catch {
       setError('状态更新失败，请刷新后重试。');
+    }
+  }
+
+  async function submitClose(event: FormEvent<HTMLFormElement>, request: StaffHandoffRequest) {
+    event.preventDefault();
+    const closeReason = closeReasonDrafts[request.requestId];
+    const resolutionCode = resolutionDrafts[request.requestId];
+    if (!closeReason || !resolutionCode) {
+      setError('关闭接管前请选择关闭原因和处理结果。');
+      return;
+    }
+    setError('');
+    try {
+      await closeStaffHandoff(staffToken.trim(), request.requestId, closeReason, resolutionCode);
+      setQueueStatus('closed');
+      await loadQueue('closed');
+    } catch {
+      setError('关闭接管失败，请刷新后重试。');
     }
   }
 
@@ -159,6 +195,9 @@ export function StaffHandoffShell() {
               <span className="message-role">{request.status}</span>
               <p>会话：{request.conversationId}</p>
               <p>原因：{request.reasonCode}</p>
+              {request.status === 'closed' && (
+                <p>关闭结果：{request.closeReason ?? 'legacy_unclassified'} / {request.resolutionCode ?? 'legacy_unclassified'}</p>
+              )}
               <ul>
                 {request.recentMessages.map((message) => (
                   <li key={message.id}>{message.senderType}: {message.content}</li>
@@ -206,7 +245,27 @@ export function StaffHandoffShell() {
                       {sendingReply === request.requestId ? '发送中…' : '发送人工回复'}
                     </button>
                   </form>
-                  <button type="button" onClick={() => void updateRequest(request, 'close')}>关闭</button>
+                  <form className="composer" onSubmit={(event) => void submitClose(event, request)} aria-label="Close handoff">
+                    <label htmlFor={`close-reason-${request.requestId}`}>关闭原因（合成规则）</label>
+                    <select
+                      id={`close-reason-${request.requestId}`}
+                      value={closeReasonDrafts[request.requestId] ?? ''}
+                      onChange={(event) => setCloseReasonDrafts((current) => ({ ...current, [request.requestId]: event.target.value as CloseReason | '' }))}
+                    >
+                      <option value="">请选择关闭原因</option>
+                      {CLOSE_REASONS.map((value) => <option key={value} value={value}>{CLOSE_REASON_LABELS[value]}</option>)}
+                    </select>
+                    <label htmlFor={`resolution-${request.requestId}`}>处理结果（合成规则）</label>
+                    <select
+                      id={`resolution-${request.requestId}`}
+                      value={resolutionDrafts[request.requestId] ?? ''}
+                      onChange={(event) => setResolutionDrafts((current) => ({ ...current, [request.requestId]: event.target.value as ResolutionCode | '' }))}
+                    >
+                      <option value="">请选择处理结果</option>
+                      {RESOLUTION_CODES.map((value) => <option key={value} value={value}>{RESOLUTION_LABELS[value]}</option>)}
+                    </select>
+                    <button type="submit" disabled={!closeReasonDrafts[request.requestId] || !resolutionDrafts[request.requestId]}>关闭接管</button>
+                  </form>
                 </>
               )}
             </article>

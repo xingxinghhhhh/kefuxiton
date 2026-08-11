@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { HandoffRequestStatus, Prisma } from '@prisma/client';
 import type {
   HandoffActionResponse,
+  StaffCloseResponse,
   HandoffRequestResponse,
   HandoffRequestStatus as ContractHandoffRequestStatus,
   InternalTag,
@@ -15,11 +16,14 @@ import type {
   StaffHandoffListResponse,
   StaffHandoffRequest,
   StaffReplyResponse,
+  StoredCloseReason,
+  StoredResolutionCode,
 } from '@ai-agent/contracts';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { hashConversationToken } from '../conversations/conversation-token.js';
 import type { StaffPrincipal } from '../auth/staff-identity.port.js';
+import { isStoredCloseReason, isStoredResolutionCode, parseCloseOutcome } from './close-outcome.js';
 
 const SUPPRESSING_STATUSES: HandoffRequestStatus[] = [
   HandoffRequestStatus.requested,
@@ -137,11 +141,31 @@ export class HandoffService {
     });
   }
 
-  async close(requestId: string, principal: StaffPrincipal, correlationId: string): Promise<HandoffActionResponse> {
+  async close(
+    requestId: string,
+    principal: StaffPrincipal,
+    correlationId: string,
+    closeReason?: unknown,
+    resolutionCode?: unknown,
+  ): Promise<StaffCloseResponse> {
+    const parsed = parseCloseOutcome(closeReason, resolutionCode);
+    if (parsed.kind === 'invalid') {
+      throw new BadRequestException(
+        parsed.reason === 'both_fields_required'
+          ? 'closeReason and resolutionCode must be provided together'
+          : 'closeReason or resolutionCode is not allowed',
+      );
+    }
+    const requestedOutcome = parsed.value;
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.handoffRequest.findUnique({ where: { id: requestId } });
       if (!current) throw new NotFoundException('handoff request not found');
       if (current.status === HandoffRequestStatus.closed) {
+        if (current.claimedBy !== principal.staffId) throw new ForbiddenException('only the claiming Operator can close');
+        const storedOutcome = this.readStoredCloseOutcome(current.closeReason, current.resolutionCode);
+        if (!this.closeOutcomeMatches(storedOutcome, requestedOutcome)) {
+          throw new ConflictException('closed handoff outcome cannot be changed');
+        }
         await this.audit.record(tx, {
           conversationId: current.conversationId,
           handoffRequestId: current.id,
@@ -151,13 +175,20 @@ export class HandoffService {
           outcome: 'replayed',
           metadata: { requestId: correlationId },
         });
-        return { requestId: current.id, status: 'closed' as const, idempotent: true };
+        return this.toCloseResponse(current.id, storedOutcome.closeReason, storedOutcome.resolutionCode, true);
       }
       if (current.status !== HandoffRequestStatus.claimed) throw new ConflictException('handoff must be claimed before closing');
+      if (current.claimedBy !== principal.staffId) throw new ForbiddenException('only the claiming Operator can close');
 
       const result = await tx.handoffRequest.updateMany({
         where: { id: requestId, status: HandoffRequestStatus.claimed },
-        data: { status: HandoffRequestStatus.closed, activeKey: null, closedAt: new Date() },
+        data: {
+          status: HandoffRequestStatus.closed,
+          activeKey: null,
+          closedAt: new Date(),
+          closeReason: requestedOutcome.closeReason,
+          resolutionCode: requestedOutcome.resolutionCode,
+        },
       });
       if (result.count !== 1) throw new ConflictException('handoff state changed; retry after refresh');
       await this.audit.record(tx, {
@@ -167,9 +198,13 @@ export class HandoffService {
         actorId: principal.staffId,
         action: 'handoff_closed',
         outcome: 'closed',
-        metadata: { requestId: correlationId },
+        metadata: {
+          requestId: correlationId,
+          closeReason: requestedOutcome.closeReason,
+          resolutionCode: requestedOutcome.resolutionCode,
+        },
       });
-      return { requestId: current.id, status: 'closed' as const, idempotent: false };
+      return this.toCloseResponse(current.id, requestedOutcome.closeReason, requestedOutcome.resolutionCode, false);
     });
   }
 
@@ -363,6 +398,7 @@ export class HandoffService {
   private toTimelineItem(event: { id: string; createdAt: Date; actorType: string; actorId: string | null; action: string; outcome: string; metadata: unknown }, requestId: string) {
     const action = this.normalizeTimelineAction(event.action);
     const metadata = this.readTimelineMetadata(event.metadata);
+    const closeOutcome = this.timelineCloseOutcome(action, metadata);
     return {
       eventId: event.id,
       occurredAt: event.createdAt.toISOString(),
@@ -373,6 +409,8 @@ export class HandoffService {
       subjectType: this.subjectTypeFor(action),
       subjectRef: this.subjectRefFor(action, metadata, requestId),
       tag: this.tagFor(action, metadata),
+      closeReason: closeOutcome.closeReason,
+      resolutionCode: closeOutcome.resolutionCode,
     };
   }
 
@@ -429,10 +467,61 @@ export class HandoffService {
     return tag as InternalTag;
   }
 
+  private timelineCloseOutcome(action: TimelineAction, metadata: Record<string, string>) {
+    if (action === 'handoff_close_replayed') {
+      if (Object.keys(metadata).some((key) => key !== 'requestId')) {
+        throw new InternalServerErrorException('unsupported handoff close metadata');
+      }
+      return { closeReason: null, resolutionCode: null };
+    }
+    if (action !== 'handoff_closed') return { closeReason: null, resolutionCode: null };
+    const allowedKeys = new Set(['requestId', 'closeReason', 'resolutionCode']);
+    if (Object.keys(metadata).some((key) => !allowedKeys.has(key))) {
+      throw new InternalServerErrorException('unsupported handoff close metadata');
+    }
+    const closeReason = metadata.closeReason;
+    const resolutionCode = metadata.resolutionCode;
+    if (closeReason === undefined && resolutionCode === undefined) return { closeReason: null, resolutionCode: null };
+    if (!isStoredCloseReason(closeReason) || !isStoredResolutionCode(resolutionCode)) {
+      throw new InternalServerErrorException('unsupported handoff close outcome');
+    }
+    return { closeReason, resolutionCode };
+  }
+
   private maskActorId(actorId: string | null) {
     if (!actorId) return null;
     if (actorId.length <= 4) return '***';
     return `${actorId.slice(0, 2)}***${actorId.slice(-2)}`;
+  }
+
+  private readStoredCloseOutcome(closeReason: string | null, resolutionCode: string | null): {
+    closeReason: StoredCloseReason | null;
+    resolutionCode: StoredResolutionCode | null;
+  } {
+    if (closeReason === null && resolutionCode === null) return { closeReason: null, resolutionCode: null };
+    if (!isStoredCloseReason(closeReason) || !isStoredResolutionCode(resolutionCode)) {
+      throw new InternalServerErrorException('stored handoff close outcome is invalid');
+    }
+    return { closeReason, resolutionCode };
+  }
+
+  private closeOutcomeMatches(
+    stored: { closeReason: StoredCloseReason | null; resolutionCode: StoredResolutionCode | null },
+    requested: { closeReason: StoredCloseReason; resolutionCode: StoredResolutionCode },
+  ) {
+    if (stored.closeReason === null && stored.resolutionCode === null) {
+      return requested.closeReason === 'legacy_unclassified' && requested.resolutionCode === 'legacy_unclassified';
+    }
+    return stored.closeReason === requested.closeReason && stored.resolutionCode === requested.resolutionCode;
+  }
+
+  private toCloseResponse(
+    requestId: string,
+    closeReason: StoredCloseReason | null,
+    resolutionCode: StoredResolutionCode | null,
+    idempotent: boolean,
+  ): StaffCloseResponse {
+    return { requestId, status: 'closed', closeReason, resolutionCode, idempotent };
   }
 
   private encodeTimelineCursor(requestId: string, occurredAt: Date, eventId: string) {
@@ -527,6 +616,8 @@ export class HandoffService {
     claimedBy: string | null;
     claimedAt: Date | null;
     closedAt: Date | null;
+    closeReason: string | null;
+    resolutionCode: string | null;
     conversation: { messages: Array<{ id: string; role: string; content: string; senderType: string | null; createdAt: Date }> };
   }): StaffHandoffRequest {
     return {
@@ -539,6 +630,7 @@ export class HandoffService {
       claimedBy: request.claimedBy,
       claimedAt: request.claimedAt?.toISOString() ?? null,
       closedAt: request.closedAt?.toISOString() ?? null,
+      ...this.readStaffCloseOutcome(request.closeReason, request.resolutionCode),
       recentMessages: request.conversation.messages.slice().reverse().map((message) => ({
         id: message.id,
         role: message.role as 'user' | 'agent',
@@ -547,6 +639,10 @@ export class HandoffService {
         createdAt: message.createdAt.toISOString(),
       })),
     };
+  }
+
+  private readStaffCloseOutcome(closeReason: string | null, resolutionCode: string | null) {
+    return this.readStoredCloseOutcome(closeReason, resolutionCode);
   }
 
   private toReplyResponse(

@@ -83,14 +83,29 @@ describeReal('handoff request loop', () => {
       });
       expect((await handoff.getStatus(conversation.id, accessToken))?.status).toBe('claimed');
 
-      const close = await handoff.close(request.requestId, principal, 'integration-close');
-      expect(close).toEqual({ requestId: request.requestId, status: 'closed', idempotent: false });
-      expect(await handoff.close(request.requestId, principal, 'integration-close-replay')).toEqual({
+      const close = await handoff.close(request.requestId, principal, 'integration-close', 'operator_completed', 'resolved');
+      expect(close).toEqual({
         requestId: request.requestId,
         status: 'closed',
+        closeReason: 'operator_completed',
+        resolutionCode: 'resolved',
+        idempotent: false,
+      });
+      expect(await handoff.close(request.requestId, principal, 'integration-close-replay', 'operator_completed', 'resolved')).toEqual({
+        requestId: request.requestId,
+        status: 'closed',
+        closeReason: 'operator_completed',
+        resolutionCode: 'resolved',
         idempotent: true,
       });
+      await expect(handoff.close(request.requestId, principal, 'integration-close-conflict', 'unable_to_resolve', 'unresolved'))
+        .rejects.toThrow('closed handoff outcome cannot be changed');
       expect((await handoff.getStatus(conversation.id, accessToken))?.status).toBe('closed');
+      expect((await handoff.getForStaff(request.requestId)).closeReason).toBe('operator_completed');
+      expect((await handoff.getForStaff(request.requestId)).resolutionCode).toBe('resolved');
+      const timeline = await handoff.getAuditTimeline(request.requestId, 100);
+      const closeEvent = timeline.items.find((item) => item.action === 'handoff_closed');
+      expect(closeEvent).toMatchObject({ closeReason: 'operator_completed', resolutionCode: 'resolved' });
 
       const conversations = new ConversationsService(prisma as never, new MockAgentAdapter(), handoff);
       const suppressed = await conversations.sendMessage(conversation.id, accessToken, 'closed status message');
@@ -98,6 +113,58 @@ describeReal('handoff request loop', () => {
       expect(suppressed.messages).toHaveLength(1);
       expect(suppressed.handoffRecommended).toBe(false);
       expect(await prisma.auditEvent.count({ where: { handoffRequestId: request.requestId } })).toBe(5);
+    } finally {
+      await prisma.conversation.delete({ where: { id: conversation.id } });
+    }
+  });
+
+  it('validates structured close outcomes, keeps legacy close compatible, and preserves historical nulls', async () => {
+    const accessToken = `handoff-close-outcome-test-${Date.now()}`;
+    const conversation = await prisma.conversation.create({ data: { accessTokenHash: hashConversationToken(accessToken) } });
+    const principal: StaffPrincipal = {
+      staffId: 'close-outcome-operator',
+      permissions: ['handoff:read', 'handoff:claim', 'handoff:close', 'conversation:read'],
+    };
+    const otherPrincipal: StaffPrincipal = { ...principal, staffId: 'different-close-operator' };
+    try {
+      const request = await handoff.request(conversation.id, accessToken, 'customer_requested');
+      await handoff.claim(request.requestId, principal, 'close-outcome-claim');
+      await expect(handoff.close(request.requestId, principal, 'missing-resolution', 'operator_completed'))
+        .rejects.toThrow('closeReason and resolutionCode must be provided together');
+      await expect(handoff.close(request.requestId, principal, 'invalid-enum', 'not-a-reason', 'resolved'))
+        .rejects.toThrow('closeReason or resolutionCode is not allowed');
+      await expect(handoff.close(request.requestId, otherPrincipal, 'wrong-operator', 'operator_completed', 'resolved'))
+        .rejects.toThrow('only the claiming Operator can close');
+
+      const legacyClose = await handoff.close(request.requestId, principal, 'legacy-close');
+      expect(legacyClose).toMatchObject({
+        requestId: request.requestId,
+        status: 'closed',
+        closeReason: 'legacy_unclassified',
+        resolutionCode: 'legacy_unclassified',
+        idempotent: false,
+      });
+      expect(await handoff.close(request.requestId, principal, 'legacy-replay')).toEqual({ ...legacyClose, idempotent: true });
+      expect(await prisma.handoffRequest.findUnique({ where: { id: request.requestId }, select: { closeReason: true, resolutionCode: true } }))
+        .toEqual({ closeReason: 'legacy_unclassified', resolutionCode: 'legacy_unclassified' });
+
+      const historicalToken = `${accessToken}-historical`;
+      const historicalConversation = await prisma.conversation.create({ data: { accessTokenHash: hashConversationToken(historicalToken) } });
+      try {
+        const historicalRequest = await handoff.request(historicalConversation.id, historicalToken, 'customer_requested');
+        await handoff.claim(historicalRequest.requestId, principal, 'historical-claim');
+        await prisma.handoffRequest.update({
+          where: { id: historicalRequest.requestId },
+          data: { status: 'closed', activeKey: null, closedAt: new Date() },
+        });
+        await expect(handoff.close(historicalRequest.requestId, principal, 'historical-replay')).resolves.toMatchObject({
+          closeReason: null,
+          resolutionCode: null,
+          idempotent: true,
+        });
+      } finally {
+        await prisma.conversation.delete({ where: { id: historicalConversation.id } });
+      }
     } finally {
       await prisma.conversation.delete({ where: { id: conversation.id } });
     }
@@ -136,7 +203,7 @@ describeReal('handoff request loop', () => {
       expect(await prisma.operatorReply.count({ where: { handoffRequestId: request.requestId } })).toBe(1);
       expect(await prisma.auditEvent.count({ where: { handoffRequestId: request.requestId, action: { in: ['operator_reply_created', 'operator_reply_replayed'] } } })).toBe(2);
 
-      await handoff.close(request.requestId, principal, 'reply-close');
+      await handoff.close(request.requestId, principal, 'reply-close', 'operator_completed', 'resolved');
       await expect(handoff.reply(request.requestId, principal, 'after close', 'reply-key-2', 'reply-after-close'))
         .rejects.toThrow('only claimed handoffs accept replies');
     } finally {
