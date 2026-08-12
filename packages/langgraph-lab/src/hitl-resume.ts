@@ -17,11 +17,11 @@ export function createHumanReviewSession(ports: WorkflowPorts) {
   return {
     graph,
     start: async (inputContent: string, threadId: string): Promise<HitlRunResult> => {
-      const output = await graph.invoke({ inputContent }, createConfig(threadId));
-      return mapGraphOutput(output, threadId);
+      const output = await graph.invoke({ inputContent }, createHumanReviewConfig(threadId));
+      return mapHitlGraphOutput(output, threadId);
     },
     resume: async (threadId: string, decision: unknown): Promise<HitlRunResult> => {
-      const config = createConfig(threadId);
+      const config = createHumanReviewConfig(threadId);
       const snapshot = await graph.getState(config);
       const currentState = isRecord(snapshot.values) ? snapshot.values : undefined;
       if (!currentState || snapshot.next.length === 0) {
@@ -35,16 +35,16 @@ export function createHumanReviewSession(ports: WorkflowPorts) {
       }
 
       const output = await graph.invoke(new Command({ resume: decision === undefined || decision === null ? MISSING_RESUME_MARKER : decision }), config);
-      return mapGraphOutput(output, threadId);
+      return mapHitlGraphOutput(output, threadId);
     },
   };
 }
 
-function createConfig(threadId: string) {
+export function createHumanReviewConfig(threadId: string) {
   return { configurable: { thread_id: threadId } };
 }
 
-function mapGraphOutput(output: HitlGraphStateFromAnnotation, threadId: string): HitlRunResult {
+export function mapHitlGraphOutput(output: HitlGraphStateFromAnnotation, threadId: string): HitlRunResult {
   const interruptPayload = extractInterruptPayload(output);
   if (interruptPayload) {
     return {

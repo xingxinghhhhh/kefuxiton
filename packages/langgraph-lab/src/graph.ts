@@ -1,19 +1,35 @@
 import { END, START, StateGraph } from '@langchain/langgraph';
 import type { WorkflowPorts } from './ports.js';
 import { createWorkflowNodes } from './nodes.js';
-import { StateAnnotation, type AgentResultCompat, type GraphState, type RequestPolicyDecision } from './state.js';
+import { StateAnnotation, type AgentResultCompat, type GraphState, type GraphUpdate, type RequestPolicyDecision } from './state.js';
+import { toTraceRoute, type TraceSink } from './trace-contract.js';
 
-export function createLangGraphWorkflow(ports: WorkflowPorts) {
+type WorkflowNode = (state: GraphState) => GraphUpdate | Promise<GraphUpdate>;
+
+export function createLangGraphWorkflow(ports: WorkflowPorts, traceSink?: TraceSink) {
   const nodes = createWorkflowNodes(ports);
+  const wrap = (name: Parameters<TraceSink['recordNodeEntered']>[0], node: WorkflowNode): WorkflowNode => {
+    if (!traceSink) return node;
+    return async (state: GraphState) => {
+      traceSink.recordNodeEntered(name);
+      const update = await node(state);
+      const rawRoute = 'path' in update ? update.path : undefined;
+      const route = rawRoute === undefined ? null : toTraceRoute(rawRoute);
+      if (rawRoute !== undefined && route === undefined) traceSink.setErrorCode('TRACE_ROUTE_UNKNOWN');
+      traceSink.recordNodeCompleted(name, route ?? null);
+      return update;
+    };
+  };
+
   return new StateGraph(StateAnnotation)
-    .addNode('classify_request', nodes.classifyRequest)
-    .addNode('retrieve_published', nodes.retrievePublished)
-    .addNode('inspect_knowledge', nodes.inspectKnowledge)
-    .addNode('safe_refusal', nodes.safeRefusal)
-    .addNode('handoff_recommended', nodes.handoffRecommended)
-    .addNode('safe_unavailable', nodes.safeUnavailable)
-    .addNode('knowledge_answer', nodes.knowledgeAnswer)
-    .addNode('mock_fallback', nodes.mockFallback)
+    .addNode('classify_request', wrap('classify_request', nodes.classifyRequest))
+    .addNode('retrieve_published', wrap('retrieve_published', nodes.retrievePublished))
+    .addNode('inspect_knowledge', wrap('inspect_knowledge', nodes.inspectKnowledge))
+    .addNode('safe_refusal', wrap('safe_refusal', nodes.safeRefusal))
+    .addNode('handoff_recommended', wrap('handoff_recommended', nodes.handoffRecommended))
+    .addNode('safe_unavailable', wrap('safe_unavailable', nodes.safeUnavailable))
+    .addNode('knowledge_answer', wrap('knowledge_answer', nodes.knowledgeAnswer))
+    .addNode('mock_fallback', wrap('mock_fallback', nodes.mockFallback))
     .addEdge(START, 'classify_request')
     .addConditionalEdges('classify_request', routeAfterClassify, {
       injection: 'safe_refusal',

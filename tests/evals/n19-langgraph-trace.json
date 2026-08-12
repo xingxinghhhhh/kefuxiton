@@ -1,0 +1,15 @@
+[
+  { "id": "n17_normal_trace", "graph": "n17", "terminalOutcome": "knowledge_answer" },
+  { "id": "n17_injection_trace", "graph": "n17", "terminalOutcome": "safe_refusal" },
+  { "id": "n17_no_match_trace", "graph": "n17", "terminalOutcome": "safe_unavailable" },
+  { "id": "n17_unsafe_knowledge_trace", "graph": "n17", "terminalOutcome": "handoff_recommended" },
+  { "id": "n17_retrieval_failure_trace", "graph": "n17", "errorCode": "RETRIEVAL_FAILED" },
+  { "id": "n18_initial_pause_trace", "graph": "n18", "finalRunStatus": "paused" },
+  { "id": "n18_approve_trace", "graph": "n18", "resumeStatus": "approved" },
+  { "id": "n18_deny_trace", "graph": "n18", "terminalOutcome": "safe_refusal" },
+  { "id": "n18_missing_trace", "graph": "n18", "errorCode": "HUMAN_DECISION_MISSING" },
+  { "id": "n18_invalid_trace", "graph": "n18", "errorCode": "HUMAN_DECISION_INVALID" },
+  { "id": "n18_duplicate_trace", "graph": "n18", "errorCode": "HUMAN_RESUME_DUPLICATE" },
+  { "id": "n18_stale_trace", "graph": "n18", "errorCode": "HUMAN_RESUME_STALE" },
+  { "id": "trace_redaction_and_determinism", "graph": "n17+n18", "eventCount": "fixed" }
+]

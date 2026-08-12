@@ -11,6 +11,7 @@ import {
   type HitlPath,
   type HumanDecision,
 } from './hitl-state.js';
+import { toTraceRoute, type TraceNode, type TraceSink } from './trace-contract.js';
 import {
   hitlApprovedHandoffResult,
   hitlDeniedResult,
@@ -20,12 +21,31 @@ import {
   hitlSafeUnavailableResult,
 } from './hitl-result-mapper.js';
 
-export function createHumanReviewWorkflow(ports: WorkflowPorts, checkpointer: MemorySaver = new MemorySaver()) {
+type HitlNode = (state: HitlGraphStateFromAnnotation) => HitlGraphUpdate | Promise<HitlGraphUpdate>;
+
+function wrapHitlNode(name: TraceNode, node: HitlNode, traceSink?: TraceSink): HitlNode {
+  if (!traceSink) return node;
+  return async (state: HitlGraphStateFromAnnotation) => {
+    traceSink.recordNodeEntered(name);
+    const update = await node(state);
+    const rawRoute = 'path' in update ? update.path : undefined;
+    const route = rawRoute === undefined ? null : toTraceRoute(rawRoute);
+    if (rawRoute !== undefined && route === undefined) traceSink.setErrorCode('TRACE_ROUTE_UNKNOWN');
+    traceSink.recordNodeCompleted(name, route ?? null);
+    return update;
+  };
+}
+
+export function createHumanReviewWorkflow(
+  ports: WorkflowPorts,
+  checkpointer: MemorySaver = new MemorySaver(),
+  traceSink?: TraceSink,
+) {
   const graph = new StateGraph(HitlStateAnnotation)
-    .addNode('classify_request', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => ({
+    .addNode('classify_request', wrapHitlNode('classify_request', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => ({
       policyDecision: ports.classifyUserRequest(state.inputContent),
-    }))
-    .addNode('retrieve_published', async (state: HitlGraphStateFromAnnotation): Promise<HitlGraphUpdate> => {
+    }), traceSink))
+    .addNode('retrieve_published', wrapHitlNode('retrieve_published', async (state: HitlGraphStateFromAnnotation): Promise<HitlGraphUpdate> => {
       try {
         const retrievalResult = await ports.retrievePublished(state.inputContent);
         if (!isRetrievedKnowledgeResult(retrievalResult)) {
@@ -35,8 +55,8 @@ export function createHumanReviewWorkflow(ports: WorkflowPorts, checkpointer: Me
       } catch {
         return { path: 'mock_fallback', errorCode: undefined };
       }
-    })
-    .addNode('inspect_knowledge', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
+    }, traceSink))
+    .addNode('inspect_knowledge', wrapHitlNode('inspect_knowledge', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
       const retrievalResult = state.retrievalResult;
       if (!retrievalResult) return { path: 'mock_fallback' };
       if (retrievalResult.chunks.length === 0) return { path: 'no_match' };
@@ -51,15 +71,15 @@ export function createHumanReviewWorkflow(ports: WorkflowPorts, checkpointer: Me
       } catch {
         return { path: 'mock_fallback' };
       }
-    })
-    .addNode('prepare_handoff_pause', (): HitlGraphUpdate => ({
+    }, traceSink))
+    .addNode('prepare_handoff_pause', wrapHitlNode('prepare_handoff_pause', (): HitlGraphUpdate => ({
       path: 'prepare_handoff_pause',
       handoffPause: createHandoffInterruptPayload(),
       resumeStatus: 'paused',
       terminalOutcome: undefined,
       result: undefined,
-    }))
-    .addNode('request_human_decision', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
+    }), traceSink))
+    .addNode('request_human_decision', wrapHitlNode('request_human_decision', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
       const payload = state.handoffPause;
       if (!payload) return { path: 'fail_closed', resumeStatus: 'invalid', errorCode: 'HUMAN_DECISION_INVALID' };
 
@@ -77,30 +97,30 @@ export function createHumanReviewWorkflow(ports: WorkflowPorts, checkpointer: Me
         humanDecision: decision,
         resumeStatus: decision.decision === 'approve_handoff' ? 'approved' : 'denied',
       };
-    })
-    .addNode('validate_human_decision', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
+    }, traceSink))
+    .addNode('validate_human_decision', wrapHitlNode('validate_human_decision', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
       if (!state.humanDecision || state.resumeStatus === 'invalid') {
         return { path: 'fail_closed' };
       }
       return { path: 'validate_human_decision' };
-    })
-    .addNode('safe_refusal', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
+    }, traceSink))
+    .addNode('safe_refusal', wrapHitlNode('safe_refusal', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
       if (state.policyDecision === 'injection') {
         return { path: 'injection', result: hitlInjectionResult(), terminalOutcome: 'safe_refusal' };
       }
       return { path: 'safe_refusal', result: hitlDeniedResult(), terminalOutcome: 'safe_refusal' };
-    })
-    .addNode('handoff_recommended', (): HitlGraphUpdate => ({
+    }, traceSink))
+    .addNode('handoff_recommended', wrapHitlNode('handoff_recommended', (): HitlGraphUpdate => ({
       path: 'handoff_recommended',
       result: hitlApprovedHandoffResult(),
       terminalOutcome: 'handoff_recommended',
-    }))
-    .addNode('safe_unavailable', (): HitlGraphUpdate => ({
+    }), traceSink))
+    .addNode('safe_unavailable', wrapHitlNode('safe_unavailable', (): HitlGraphUpdate => ({
       path: 'safe_unavailable',
       result: hitlSafeUnavailableResult(),
       terminalOutcome: 'safe_unavailable',
-    }))
-    .addNode('knowledge_answer', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
+    }), traceSink))
+    .addNode('knowledge_answer', wrapHitlNode('knowledge_answer', (state: HitlGraphStateFromAnnotation): HitlGraphUpdate => {
       const retrievalResult = state.retrievalResult;
       if (!retrievalResult) return { path: 'mock_fallback', result: hitlMockFallbackResult(), terminalOutcome: 'mock_fallback' };
       const answer = retrievalResult.chunks.map((chunk) => chunk.answer).filter(Boolean).join('\n\n');
@@ -110,17 +130,17 @@ export function createHumanReviewWorkflow(ports: WorkflowPorts, checkpointer: Me
         result: hitlKnowledgeAnswerResult(answer, retrievalResult.citations),
         terminalOutcome: 'knowledge_answer',
       };
-    })
-    .addNode('mock_fallback', (): HitlGraphUpdate => ({
+    }, traceSink))
+    .addNode('mock_fallback', wrapHitlNode('mock_fallback', (): HitlGraphUpdate => ({
       path: 'mock_fallback',
       result: hitlMockFallbackResult(),
       terminalOutcome: 'mock_fallback',
-    }))
-    .addNode('fail_closed', (): HitlGraphUpdate => ({
+    }), traceSink))
+    .addNode('fail_closed', wrapHitlNode('fail_closed', (): HitlGraphUpdate => ({
       path: 'fail_closed',
       result: hitlDeniedResult(),
       terminalOutcome: 'safe_refusal',
-    }))
+    }), traceSink))
     .addEdge(START, 'classify_request')
     .addConditionalEdges('classify_request', routeAfterClassify, {
       injection: 'safe_refusal',
