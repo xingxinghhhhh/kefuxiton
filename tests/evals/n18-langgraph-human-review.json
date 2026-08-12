@@ -1,0 +1,14 @@
+[
+  { "id": "handoff_initial_pause", "runStatus": "paused", "path": "prepare_handoff_pause", "resumeStatus": "paused" },
+  { "id": "handoff_approve_resume", "runStatus": "completed", "path": "handoff_recommended", "resumeStatus": "approved", "terminalOutcome": "handoff_recommended" },
+  { "id": "handoff_deny_resume", "runStatus": "completed", "path": "safe_refusal", "resumeStatus": "denied", "terminalOutcome": "safe_refusal", "responseType": "safe_unavailable" },
+  { "id": "missing_resume", "runStatus": "rejected", "path": "fail_closed", "resumeStatus": "invalid", "errorCode": "HUMAN_DECISION_MISSING" },
+  { "id": "invalid_resume", "runStatus": "rejected", "path": "fail_closed", "resumeStatus": "invalid", "errorCode": "HUMAN_DECISION_INVALID" },
+  { "id": "duplicate_resume", "runStatus": "rejected", "resumeStatus": "approved", "errorCode": "HUMAN_RESUME_DUPLICATE" },
+  { "id": "stale_thread_resume", "runStatus": "rejected", "resumeStatus": "stale", "errorCode": "HUMAN_RESUME_STALE" },
+  { "id": "unsafe_knowledge_pause", "runStatus": "paused", "path": "prepare_handoff_pause", "resumeStatus": "paused" },
+  { "id": "prompt_injection_refusal", "runStatus": "completed", "path": "injection", "resumeStatus": "not_started", "responseType": "handoff_recommended" },
+  { "id": "published_knowledge_answer", "runStatus": "completed", "path": "knowledge_answer", "resumeStatus": "not_started", "terminalOutcome": "knowledge_answer", "responseType": "knowledge_answer" },
+  { "id": "no_published_match", "runStatus": "completed", "path": "safe_unavailable", "resumeStatus": "not_started", "terminalOutcome": "safe_unavailable", "responseType": "safe_unavailable" },
+  { "id": "retrieval_failure_fail_closed", "runStatus": "completed", "path": "mock_fallback", "resumeStatus": "not_started", "terminalOutcome": "mock_fallback", "responseType": "mock_fallback" }
+]
