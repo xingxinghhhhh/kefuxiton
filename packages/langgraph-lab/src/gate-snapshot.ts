@@ -24,9 +24,9 @@ export interface EvidenceGateSnapshot {
 
 /** Projects the existing bundle verifier result into a redacted operator-facing gate snapshot. */
 export function buildEvidenceGateSnapshot(bundle: unknown, envelopes: readonly unknown[]): EvidenceGateSnapshot {
-  const projected = projectSafeBundleFields(bundle);
-
+  let projected = emptyProjection();
   try {
+    projected = projectSafeBundleFields(bundle);
     const verification = verifyEvidenceBundle(bundle, envelopes);
     if (!isRecord(verification) || verification.schemaVersion !== N23_SCHEMA_VERSION) {
       return blocked(projected, 'BUNDLE_INVALID');

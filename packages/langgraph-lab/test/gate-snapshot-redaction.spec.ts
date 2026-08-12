@@ -35,4 +35,22 @@ describe('N25 gate snapshot failure mapping and redaction', () => {
     });
     expect(buildEvidenceGateSnapshot({}, 'not-an-array' as unknown as readonly unknown[]).reasonCode).toBe('BUNDLE_INVALID');
   });
+
+  it('maps throwing input accessors to BUNDLE_INVALID without leaking the error', () => {
+    const throwingBundle = new Proxy({}, { get: () => { throw new Error('secret runtime detail'); } });
+    const snapshot = buildEvidenceGateSnapshot(throwingBundle, []);
+
+    expect(snapshot).toEqual({
+      status: 'blocked',
+      bundleSchemaVersion: null,
+      sourceSchemaVersion: null,
+      digestAlgorithm: null,
+      expectedCaseCount: 13,
+      validatedCaseCount: 0,
+      bundleDigest: null,
+      bundleDigestMatch: false,
+      reasonCode: 'BUNDLE_INVALID',
+    });
+    expect(JSON.stringify(snapshot)).not.toContain('secret runtime detail');
+  });
 });
