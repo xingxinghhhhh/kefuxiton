@@ -1,0 +1,18 @@
+[
+  { "id": "repeat-seal", "kind": "valid" },
+  { "id": "rebuild-semantic-envelope", "kind": "valid" },
+  { "id": "property-insertion-order", "kind": "valid" },
+  { "id": "input-array-order-change", "kind": "invalid" },
+  { "id": "seal-envelope-mutation", "kind": "valid" },
+  { "id": "seal-array-mutation", "kind": "valid" },
+  { "id": "verify-input-immutability", "kind": "valid" },
+  { "id": "repeat-verify", "kind": "valid" },
+  { "id": "valid-n23-bundle", "kind": "valid" },
+  { "id": "unknown-bundle-schema", "kind": "invalid" },
+  { "id": "bundle-source-version", "kind": "invalid" },
+  { "id": "bundle-digest-algorithm", "kind": "invalid" },
+  { "id": "envelope-source-version", "kind": "invalid" },
+  { "id": "envelope-digest-algorithm", "kind": "invalid" },
+  { "id": "envelope-digest-tamper", "kind": "invalid" },
+  { "id": "bundle-digest-tamper", "kind": "invalid" }
+]
