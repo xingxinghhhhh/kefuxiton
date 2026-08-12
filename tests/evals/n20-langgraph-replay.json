@@ -1,0 +1,15 @@
+[
+  { "id": "n17-normal", "graph": "n17" },
+  { "id": "n17-injection", "graph": "n17" },
+  { "id": "n17-no-match", "graph": "n17" },
+  { "id": "n17-unsafe-knowledge", "graph": "n17" },
+  { "id": "n17-retrieval-failure", "graph": "n17" },
+  { "id": "n17-invalid-retrieval", "graph": "n17" },
+  { "id": "n18-handoff-pause", "graph": "n18" },
+  { "id": "n18-approve", "graph": "n18" },
+  { "id": "n18-deny", "graph": "n18" },
+  { "id": "n18-missing", "graph": "n18" },
+  { "id": "n18-invalid", "graph": "n18" },
+  { "id": "n18-duplicate", "graph": "n18" },
+  { "id": "n18-stale", "graph": "n18" }
+]
