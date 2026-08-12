@@ -110,6 +110,21 @@ async function waitForHealth() {
   );
 }
 
+async function assertRuntimeHealth() {
+  const live = await requestJson('/api/v1/health/live');
+  assert(live.response.status === 200, 'liveness endpoint must be available after startup');
+  assert(live.body.status === 'ok' && live.body.check === 'liveness' && live.body.service === 'api', 'liveness response contract changed');
+  assert(['development', 'test', 'local_eval', 'rehearsal', 'production'].includes(live.body.mode), 'liveness mode must be a safe runtime mode');
+  assert(live.response.headers.get('cache-control') === 'no-store', 'liveness must not be cached');
+
+  const ready = await requestJson('/api/v1/health/ready');
+  assert(ready.response.status === 200, 'readiness endpoint must pass when the database is available');
+  assert(ready.body.status === 'ready' && ready.body.check === 'readiness' && ready.body.service === 'api', 'readiness response contract changed');
+  assert(ready.body.mode === live.body.mode, 'health endpoints must report the same runtime mode');
+  assert(ready.response.headers.get('cache-control') === 'no-store', 'readiness must not be cached');
+  assert(!JSON.stringify({ live: live.body, ready: ready.body }).match(/DATABASE_URL|password|token|secret|stack|path/i), 'health responses must be redacted');
+}
+
 function startApi() {
   lastApiOutput = [];
   const appEnv = process.env.API_SMOKE_APP_ENV ?? 'test';
@@ -169,6 +184,7 @@ try {
   }
   api = startApi();
   await waitForHealth();
+  await assertRuntimeHealth();
 
   const created = await requestJson('/api/v1/conversations', { method: 'POST' });
   assert(created.response.status === 201, `conversation creation returned HTTP ${created.response.status}`);
@@ -404,6 +420,7 @@ try {
   await stopApi(api);
   api = startApi();
   await waitForHealth();
+  await assertRuntimeHealth();
 
   const restartConversation = await requestJson('/api/v1/conversations', { method: 'POST' });
   const afterRestart = await requestJson(`/api/v1/conversations/${restartConversation.body.conversationId}/messages`, {
@@ -420,6 +437,7 @@ try {
   await prisma.knowledgeDocument.deleteMany({ where: { sourceId: smokeSourceId } });
   api = startApi();
   await waitForHealth();
+  await assertRuntimeHealth();
   const fallback = await requestJson('/api/v1/conversations', { method: 'POST' });
   const fallbackMessage = await requestJson(`/api/v1/conversations/${fallback.body.conversationId}/messages`, {
     method: 'POST',

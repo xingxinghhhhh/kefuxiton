@@ -1,0 +1,11 @@
+[
+  { "category": "legacy_health_compatibility", "expectation": "the original health response remains unchanged" },
+  { "category": "liveness_no_database", "expectation": "liveness returns 200 without invoking a database probe" },
+  { "category": "readiness_database_success", "expectation": "database probe success returns ready" },
+  { "category": "readiness_database_failure", "expectation": "database failure maps to a safe 503 reason code" },
+  { "category": "readiness_database_timeout", "expectation": "the fixed 1000ms deadline maps to DATABASE_TIMEOUT" },
+  { "category": "concurrent_probe_deduplication", "expectation": "concurrent readiness requests share one probe" },
+  { "category": "runtime_mode_separation", "expectation": "non-production modes are reported without production readiness claims" },
+  { "category": "redacted_health_contract", "expectation": "health responses expose no secrets, paths, or database details" },
+  { "category": "read_only_boundary", "expectation": "health adapter uses only SELECT 1 and no business writes" }
+]

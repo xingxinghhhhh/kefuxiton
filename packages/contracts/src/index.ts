@@ -221,3 +221,19 @@ export interface ApiErrorResponse {
     requestId: string;
   };
 }
+
+export type HealthRuntimeMode = 'development' | 'test' | 'local_eval' | 'rehearsal' | 'production';
+
+export interface HealthLiveResponse {
+  status: 'ok';
+  check: 'liveness';
+  service: 'api';
+  mode: HealthRuntimeMode;
+}
+
+export interface HealthReadyResponse {
+  status: 'ready';
+  check: 'readiness';
+  service: 'api';
+  mode: HealthRuntimeMode;
+}
