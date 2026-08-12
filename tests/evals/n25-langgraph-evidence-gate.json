@@ -1,0 +1,16 @@
+[
+  { "id": "valid-complete-bundle", "kind": "valid" },
+  { "id": "missing-case", "kind": "invalid" },
+  { "id": "duplicate-case", "kind": "invalid" },
+  { "id": "wrong-case-order", "kind": "invalid" },
+  { "id": "unknown-case", "kind": "invalid" },
+  { "id": "case-identity-mismatch", "kind": "invalid" },
+  { "id": "bundle-source-version", "kind": "invalid" },
+  { "id": "envelope-source-version", "kind": "invalid" },
+  { "id": "bundle-digest-algorithm", "kind": "invalid" },
+  { "id": "envelope-digest-algorithm", "kind": "invalid" },
+  { "id": "envelope-digest-tamper", "kind": "invalid" },
+  { "id": "bundle-digest-tamper", "kind": "invalid" },
+  { "id": "unknown-sensitive-or-oversized", "kind": "invalid" },
+  { "id": "malformed-or-empty-input", "kind": "invalid" }
+]
