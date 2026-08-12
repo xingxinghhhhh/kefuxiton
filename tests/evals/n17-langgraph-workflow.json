@@ -1,0 +1,9 @@
+[
+  { "id": "allow_published_knowledge", "path": "knowledge_answer", "responseType": "knowledge_answer", "requiresCitations": true },
+  { "id": "prompt_injection", "path": "injection", "responseType": "handoff_recommended", "requiresCitations": false },
+  { "id": "high_risk_handoff", "path": "handoff", "responseType": "handoff_recommended", "requiresCitations": false },
+  { "id": "no_published_match", "path": "no_match", "responseType": "safe_unavailable", "requiresCitations": false },
+  { "id": "unsafe_knowledge", "path": "unsafe_knowledge", "responseType": "handoff_recommended", "requiresCitations": false },
+  { "id": "retrieval_failure", "path": "mock_fallback", "responseType": "mock_fallback", "requiresCitations": false },
+  { "id": "invalid_retrieval_output", "path": "mock_fallback", "responseType": "mock_fallback", "requiresCitations": false }
+]
