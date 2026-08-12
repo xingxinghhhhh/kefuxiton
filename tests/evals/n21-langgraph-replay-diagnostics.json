@@ -1,0 +1,23 @@
+[
+  { "id": "n21-passed-n17-normal", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n17-injection", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n17-no-match", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n17-unsafe-knowledge", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n17-retrieval-failure", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n17-invalid-retrieval", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n18-handoff-pause", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n18-approve", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n18-deny", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n18-missing", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n18-invalid", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n18-duplicate", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-passed-n18-stale", "source": "n20-passed", "expectedKind": "none" },
+  { "id": "n21-golden-mismatch", "source": "n20-mismatch", "expectedKind": "golden_mismatch" },
+  { "id": "n21-non-deterministic", "source": "n20-mismatch", "expectedKind": "non_deterministic" },
+  { "id": "n21-request-rejected", "source": "n20-rejected", "expectedKind": "request_rejected" },
+  { "id": "n21-fixture-unknown", "source": "n20-rejected", "expectedKind": "fixture_rejected" },
+  { "id": "n21-fixture-version", "source": "n20-rejected", "expectedKind": "fixture_rejected" },
+  { "id": "n21-fixture-hash", "source": "n20-rejected", "expectedKind": "fixture_rejected" },
+  { "id": "n21-sensitive-output", "source": "malformed-replay-result", "expectedKind": "sensitive_output_rejected" },
+  { "id": "n21-internal-failure", "source": "n20-rejected", "expectedKind": "internal_failure" }
+]
