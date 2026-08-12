@@ -1,0 +1,15 @@
+[
+  { "id": "complete-13-case-bundle", "kind": "valid" },
+  { "id": "missing-case", "kind": "invalid" },
+  { "id": "duplicate-case", "kind": "invalid" },
+  { "id": "wrong-order", "kind": "invalid" },
+  { "id": "unknown-case", "kind": "invalid" },
+  { "id": "case-id-mismatch", "kind": "invalid" },
+  { "id": "source-version", "kind": "invalid" },
+  { "id": "digest-algorithm", "kind": "invalid" },
+  { "id": "envelope-tamper", "kind": "invalid" },
+  { "id": "envelope-digest-mismatch", "kind": "invalid" },
+  { "id": "bundle-digest-tamper", "kind": "invalid" },
+  { "id": "unknown-or-sensitive-field", "kind": "invalid" },
+  { "id": "empty-or-oversized-bundle", "kind": "invalid" }
+]
