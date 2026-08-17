@@ -1,22 +1,12 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
-const cases = JSON.parse(readFileSync(join(root, 'tests', 'evals', 'n28-release-decision.json'), 'utf8'));
-const rootPackage = readJson('package.json');
-const productionPackages = ['apps/api/package.json', 'apps/web/package.json', 'packages/config/package.json', 'packages/contracts/package.json'];
-const productionSources = ['apps/api/src', 'apps/web', 'packages/config/src', 'packages/contracts/src']
-  .map((path) => readTree(path))
-  .join('\n');
-const readinessSource = readText('packages/config/src/release-readiness.ts');
-const mainSource = readText('apps/api/src/main.ts');
-const snapshotSource = readText('packages/langgraph-lab/src/gate-snapshot.ts');
-const n27Eval = readText('tests/evals/run-n27-eval.mjs');
-const n27Cases = readJson('tests/evals/n27-langgraph-evidence-chain.json');
-const evaluatorSource = readText('tests/evals/run-n28-eval.mjs');
-const packageManifests = productionPackages.map(readText).join('\n');
+const SOURCE_EXTENSIONS = new Set(['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']);
+const ARTIFACT_EXTENSIONS = new Set(['.cjs', '.css', '.html', '.js', '.json', '.map', '.mjs', '.txt']);
+const IGNORED_DIRECTORY_NAMES = new Set(['.next/cache', '.next/static/development', 'dist/cache', 'node_modules']);
 
 function readText(relativePath) {
   return readFileSync(join(root, relativePath), 'utf8');
@@ -27,23 +17,30 @@ function readJson(relativePath) {
 }
 
 function readTree(relativePath) {
-  const manifest = relativePath === 'apps/api/src' ? [
-    'apps/api/src/main.ts',
-    'apps/api/src/app.module.ts',
-    'apps/api/src/modules/agent/agent.module.ts',
-  ] : relativePath === 'apps/web' ? [
-    'apps/web/app/layout.tsx',
-    'apps/web/app/page.tsx',
-    'apps/web/app/chat/page.tsx',
-    'apps/web/components/chat/chat-shell.tsx',
-  ] : relativePath === 'packages/config/src' ? [
-    'packages/config/src/index.ts',
-    'packages/config/src/business-readiness.ts',
-    'packages/config/src/release-readiness.ts',
-  ] : [
-    'packages/contracts/src/index.ts',
-  ];
-  return manifest.map(readText).join('\n');
+  return readDirectoryTree(relativePath, SOURCE_EXTENSIONS, IGNORED_DIRECTORY_NAMES);
+}
+
+function readArtifactTree(relativePath) {
+  return readDirectoryTree(relativePath, ARTIFACT_EXTENSIONS, IGNORED_DIRECTORY_NAMES);
+}
+
+function readDirectoryTree(relativePath, allowedExtensions, ignoredDirectories) {
+  const absoluteRoot = join(root, relativePath);
+  assert(existsSync(absoluteRoot));
+  const files = [];
+  function visit(directory, relativeDirectory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const childRelativePath = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        const ignored = [...ignoredDirectories].some((directoryName) => childRelativePath.endsWith(directoryName));
+        if (!ignored) visit(join(directory, entry.name), childRelativePath);
+      } else if (allowedExtensions.has(entry.name.slice(entry.name.lastIndexOf('.')))) {
+        files.push(join(directory, entry.name));
+      }
+    }
+  }
+  visit(absoluteRoot, relativePath.replaceAll('\\', '/'));
+  return files.sort().map((file) => readFileSync(file, 'utf8')).join('\n');
 }
 
 function runReadiness(target, environment = {}) {
@@ -81,6 +78,24 @@ function runCase(caseId, callback) {
     process.exitCode = 1;
   }
 }
+
+try {
+const cases = readJson('tests/evals/n28-release-decision.json');
+const rootPackage = readJson('package.json');
+const productionPackages = ['apps/api/package.json', 'apps/web/package.json', 'packages/config/package.json', 'packages/contracts/package.json'];
+const productionSources = {
+  api: readTree('apps/api/src'),
+  web: readTree('apps/web'),
+  config: readTree('packages/config/src'),
+  contracts: readTree('packages/contracts/src'),
+};
+const readinessSource = readText('packages/config/src/release-readiness.ts');
+const mainSource = readText('apps/api/src/main.ts');
+const snapshotSource = readText('packages/langgraph-lab/src/gate-snapshot.ts');
+const n27Eval = readText('tests/evals/run-n27-eval.mjs');
+const n27Cases = readJson('tests/evals/n27-langgraph-evidence-chain.json');
+const evaluatorSource = readText('tests/evals/run-n28-eval.mjs');
+const packageManifests = productionPackages.map(readText).join('\n');
 
 assert(cases.length === 21);
 assert(new Set(cases.map((testCase) => testCase.id)).size === 21);
@@ -141,13 +156,15 @@ runCase('N28-R10', () => {
   assert(mainSource.includes('evaluateReleaseReadiness'));
   assert(mainSource.includes('NestFactory.create'));
 });
-runCase('N28-R11', () => assertNoProductionMarker(readTree('apps/api/src')));
-runCase('N28-R12', () => assertNoProductionMarker(readTree('apps/web')));
-runCase('N28-R13', () => assertNoProductionMarker(readTree('packages/config/src') + readTree('packages/contracts/src')));
+runCase('N28-R11', () => assertNoProductionMarker(productionSources.api));
+runCase('N28-R12', () => assertNoProductionMarker(productionSources.web));
+runCase('N28-R13', () => assertNoProductionMarker(`${productionSources.config}\n${productionSources.contracts}`));
 runCase('N28-R14', () => assertNoProductionMarker(packageManifests));
 runCase('N28-R15', () => {
   assert(rootPackage.scripts.build === 'pnpm --filter @ai-agent/config build && pnpm --filter @ai-agent/contracts build && pnpm --filter @ai-agent/api build && pnpm --filter @ai-agent/web build');
   assert(!rootPackage.scripts.build.includes('langgraph'));
+  const productionArtifacts = `${readArtifactTree('apps/api/dist')}\n${readArtifactTree('apps/web/.next')}`;
+  assertNoProductionMarker(productionArtifacts);
 });
 runCase('N28-R16', () => {
   assert(snapshotSource.includes('export interface EvidenceGateSnapshot'));
@@ -191,3 +208,7 @@ runCase('N28-R21', () => {
 });
 
 if (process.exitCode) process.exit(1);
+} catch {
+  console.log(JSON.stringify({ caseId: 'N28-BOOTSTRAP', status: 'failed', reasonCode: 'N28_EVAL_FAILED' }));
+  process.exitCode = 1;
+}
