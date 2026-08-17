@@ -1,0 +1,20 @@
+[
+  { "id": "case-n17-normal", "kind": "chain" },
+  { "id": "case-n17-injection", "kind": "chain" },
+  { "id": "case-n17-no-match", "kind": "chain" },
+  { "id": "case-n17-unsafe-knowledge", "kind": "chain" },
+  { "id": "case-n17-retrieval-failure", "kind": "chain" },
+  { "id": "case-n17-invalid-retrieval", "kind": "chain" },
+  { "id": "case-n18-handoff-pause", "kind": "chain" },
+  { "id": "case-n18-approve", "kind": "chain" },
+  { "id": "case-n18-deny", "kind": "chain" },
+  { "id": "case-n18-missing", "kind": "chain" },
+  { "id": "case-n18-invalid", "kind": "chain" },
+  { "id": "case-n18-duplicate", "kind": "chain" },
+  { "id": "case-n18-stale", "kind": "chain" },
+  { "id": "complete-valid", "kind": "replay" },
+  { "id": "tamper-envelope-digest", "kind": "tamper" },
+  { "id": "tamper-bundle-item-digest", "kind": "tamper" },
+  { "id": "tamper-bundle-digest", "kind": "tamper" },
+  { "id": "tamper-case-order", "kind": "tamper" }
+]
