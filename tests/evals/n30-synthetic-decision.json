@@ -1,0 +1,16 @@
+[
+  { "id": "N30-T01", "category": "field-contract", "assertion": "The synthetic example contains all required decision fields." },
+  { "id": "N30-T02", "category": "field-contract", "assertion": "The example uses the fixed synthetic-only and not-ready statuses." },
+  { "id": "N30-T03", "category": "field-contract", "assertion": "Synthetic hash placeholders are explicit and non-production." },
+  { "id": "N30-T04", "category": "synthetic-marker", "assertion": "Decision references use synthetic markers or the approved synthetic fixture identifier." },
+  { "id": "N30-T05", "category": "synthetic-marker", "assertion": "The example contains no sensitive or real deployment value." },
+  { "id": "N30-T06", "category": "target-mode", "assertion": "The example explicitly targets synthetic local rehearsal." },
+  { "id": "N30-T07", "category": "target-mode", "assertion": "The example states local_eval and rehearsal are the only enabled contexts." },
+  { "id": "N30-T08", "category": "production-gate", "assertion": "Production remains NOT_READY." },
+  { "id": "N30-T09", "category": "production-gate", "assertion": "The existing production blocker set and order remain unchanged." },
+  { "id": "N30-T10", "category": "boundary", "assertion": "The N29 template remains pending-confirmation." },
+  { "id": "N30-T11", "category": "boundary", "assertion": "The N29 evaluator remains separate from N30." },
+  { "id": "N30-T12", "category": "boundary", "assertion": "Only the approved N30 files and package script entry are referenced." },
+  { "id": "N30-T13", "category": "runtime-regression", "assertion": "local_eval and rehearsal readiness remain ready." },
+  { "id": "N30-T14", "category": "runtime-regression", "assertion": "The N30 acceptance and runbook wiring are present." }
+]
