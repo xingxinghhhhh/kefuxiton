@@ -1,0 +1,17 @@
+[
+  { "id": "N29-T01", "category": "template", "assertion": "all fixed decision fields are present" },
+  { "id": "N29-T02", "category": "template", "assertion": "all unresolved references use the pending placeholder" },
+  { "id": "N29-T03", "category": "template", "assertion": "confirmation and production statuses are fixed" },
+  { "id": "N29-T04", "category": "template", "assertion": "no real or sensitive values are present" },
+  { "id": "N29-T05", "category": "template", "assertion": "content and canonical hashes remain pending" },
+  { "id": "N29-T06", "category": "pending-decision", "assertion": "business input and approval remain pending" },
+  { "id": "N29-T07", "category": "pending-decision", "assertion": "knowledge source, version, and effective time remain pending" },
+  { "id": "N29-T08", "category": "pending-decision", "assertion": "Agent Provider remains pending" },
+  { "id": "N29-T09", "category": "pending-decision", "assertion": "Staff Identity remains pending" },
+  { "id": "N29-T10", "category": "pending-decision", "assertion": "deployment target remains pending" },
+  { "id": "N29-T11", "category": "pending-decision", "assertion": "data retention policy remains pending" },
+  { "id": "N29-T12", "category": "pending-decision", "assertion": "rollback owner and plan remain pending" },
+  { "id": "N29-T13", "category": "production-gate", "assertion": "pending template cannot satisfy production readiness or publishing" },
+  { "id": "N29-T14", "category": "runtime-regression", "assertion": "local_eval remains ready" },
+  { "id": "N29-T15", "category": "runtime-regression", "assertion": "rehearsal remains ready" }
+]
