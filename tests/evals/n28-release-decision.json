@@ -1,0 +1,23 @@
+[
+  { "id": "N28-R01", "category": "readiness", "assertion": "local_eval returns LOCAL_EVAL_READY with no reasons" },
+  { "id": "N28-R02", "category": "readiness", "assertion": "rehearsal returns REHEARSAL_READY with no reasons" },
+  { "id": "N28-R03", "category": "readiness", "assertion": "production returns NOT_READY" },
+  { "id": "N28-R04", "category": "readiness", "assertion": "production reason codes remain in the fixed release order" },
+  { "id": "N28-R05", "category": "readiness", "assertion": "synthetic local evaluation knowledge cannot satisfy production" },
+  { "id": "N28-R06", "category": "readiness", "assertion": "test or deny Staff capability cannot satisfy production" },
+  { "id": "N28-R07", "category": "readiness", "assertion": "deterministic local Agent cannot satisfy production" },
+  { "id": "N28-R08", "category": "readiness", "assertion": "deploymentConfigured false remains a production blocker" },
+  { "id": "N28-R09", "category": "readiness", "assertion": "readiness CLI output is limited to status, target, and reasonCodes" },
+  { "id": "N28-R10", "category": "readiness", "assertion": "environment selection cannot declare production capabilities" },
+  { "id": "N28-R11", "category": "production-isolation", "assertion": "API source has no LangGraph or LangChain import" },
+  { "id": "N28-R12", "category": "production-isolation", "assertion": "Web source has no LangGraph or LangChain import" },
+  { "id": "N28-R13", "category": "production-isolation", "assertion": "config and contracts source have no LangGraph or LangChain import" },
+  { "id": "N28-R14", "category": "production-isolation", "assertion": "production package manifests do not depend on the experiment package" },
+  { "id": "N28-R15", "category": "production-isolation", "assertion": "root production build excludes the experiment package" },
+  { "id": "N28-R16", "category": "contract", "assertion": "N25 EvidenceGateSnapshot keeps its exact nine-field contract" },
+  { "id": "N28-R17", "category": "contract", "assertion": "N27 remains an 18-case offline evaluation with no n28.v1 runtime schema" },
+  { "id": "N28-R18", "category": "contract", "assertion": "test:langgraph-lab still runs the complete N17-N27 evaluation chain" },
+  { "id": "N28-R19", "category": "safety", "assertion": "N28 evaluator has no external service or write side effect" },
+  { "id": "N28-R20", "category": "safety", "assertion": "evaluator output uses only caseId, status, and reasonCode" },
+  { "id": "N28-R21", "category": "safety", "assertion": "evaluation sources contain no credentials, customer data, or absolute paths" }
+]
