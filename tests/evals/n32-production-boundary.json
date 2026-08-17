@@ -1,0 +1,14 @@
+[
+  { "id": "N32-T01", "category": "production-readiness", "assertion": "Production readiness rejects the synthetic package." },
+  { "id": "N32-T02", "category": "production-readiness", "assertion": "Production readiness preserves the fixed blocker order." },
+  { "id": "N32-T03", "category": "production-readiness", "assertion": "Test-only capability flags cannot produce a production-ready report." },
+  { "id": "N32-T04", "category": "startup-boundary", "assertion": "Production startup fails before listening." },
+  { "id": "N32-T05", "category": "startup-boundary", "assertion": "Rejected production configuration also fails before listening." },
+  { "id": "N32-T06", "category": "bypass-resistance", "assertion": "Test Staff identity cannot bypass the production gate." },
+  { "id": "N32-T07", "category": "bypass-resistance", "assertion": "Knowledge publish enablement cannot bypass the production gate." },
+  { "id": "N32-T08", "category": "bypass-resistance", "assertion": "Ordinary environment variables cannot declare production capabilities." },
+  { "id": "N32-T09", "category": "redaction", "assertion": "Readiness rejection output is redacted." },
+  { "id": "N32-T10", "category": "redaction", "assertion": "Configuration rejection output is redacted." },
+  { "id": "N32-T11", "category": "runtime-mode", "assertion": "local_eval remains ready." },
+  { "id": "N32-T12", "category": "runtime-mode", "assertion": "rehearsal remains ready and non-production." }
+]
