@@ -1,0 +1,16 @@
+[
+  { "id": "N31-T01", "category": "n30-contract", "assertion": "N30 contains every fixed comparison field." },
+  { "id": "N31-T02", "category": "n30-contract", "assertion": "N30 retains SYNTHETIC_ONLY and NOT_READY statuses." },
+  { "id": "N31-T03", "category": "n30-contract", "assertion": "N30 Provider, Staff, deployment, retention, and rollback references are synthetic." },
+  { "id": "N31-T04", "category": "n30-contract", "assertion": "N30 business and knowledge references use the existing synthetic fixture." },
+  { "id": "N31-T05", "category": "n30-contract", "assertion": "N30 hash fields remain synthetic and uncomputed." },
+  { "id": "N31-T06", "category": "n30-contract", "assertion": "N30 contains no sensitive or real production value." },
+  { "id": "N31-T07", "category": "n29-contract", "assertion": "N29 formal decision groups remain pending." },
+  { "id": "N31-T08", "category": "n29-contract", "assertion": "N29 retains pending-confirmation and not-ready statuses." },
+  { "id": "N31-T09", "category": "n29-contract", "assertion": "N29 knowledge hashes remain pending." },
+  { "id": "N31-T10", "category": "readiness-mode", "assertion": "local_eval remains ready." },
+  { "id": "N31-T11", "category": "readiness-mode", "assertion": "rehearsal remains ready." },
+  { "id": "N31-T12", "category": "readiness-mode", "assertion": "production remains not ready." },
+  { "id": "N31-T13", "category": "blocker-order", "assertion": "Production blockers remain complete and ordered." },
+  { "id": "N31-T14", "category": "boundary-sanitization", "assertion": "Only the approved N31 files and safe output boundary are used." }
+]
