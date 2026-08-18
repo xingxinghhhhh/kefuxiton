@@ -1,0 +1,17 @@
+[
+  { "id": "N36-N34-EXACT-KEYS", "category": "n34-contract" },
+  { "id": "N36-N34-NODE-ORDER", "category": "n34-contract" },
+  { "id": "N36-N34-ITEM-COUNTS", "category": "n34-contract" },
+  { "id": "N36-N34-DIGEST", "category": "n34-contract" },
+  { "id": "N36-FREEZE-STATUS", "category": "production-freeze" },
+  { "id": "N36-FREEZE-AUTHORIZATION", "category": "production-freeze" },
+  { "id": "N36-FREEZE-REAL-INPUTS", "category": "production-freeze" },
+  { "id": "N36-READINESS-LOCAL-EVAL", "category": "readiness" },
+  { "id": "N36-READINESS-REHEARSAL", "category": "readiness" },
+  { "id": "N36-READINESS-PRODUCTION", "category": "readiness" },
+  { "id": "N36-PRODUCTION-BLOCKERS", "category": "production-freeze" },
+  { "id": "N36-N35-TRI-MODE", "category": "n35-regression" },
+  { "id": "N36-N35-REGRESSION", "category": "n35-regression" },
+  { "id": "N36-FILE-BOUNDARY", "category": "boundary" },
+  { "id": "N36-OUTPUT-REDACTION", "category": "boundary" }
+]
