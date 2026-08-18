@@ -1,0 +1,20 @@
+[
+  { "id": "N35-PACKAGE-ID", "category": "contract" },
+  { "id": "N35-SOURCE-ID", "category": "contract" },
+  { "id": "N35-SOURCE-STATUS", "category": "contract" },
+  { "id": "N35-CONTENT-HASH", "category": "hash" },
+  { "id": "N35-CANONICAL-HASH", "category": "hash" },
+  { "id": "N35-LOCAL-EVAL-IMPORT", "category": "local_eval" },
+  { "id": "N35-LOCAL-EVAL-NOT-PUBLISHED", "category": "local_eval" },
+  { "id": "N35-LOCAL-EVAL-NOT-RETRIEVABLE", "category": "local_eval" },
+  { "id": "N35-LOCAL-EVAL-CLEANUP", "category": "local_eval" },
+  { "id": "N35-REHEARSAL-IMPORT", "category": "rehearsal" },
+  { "id": "N35-REHEARSAL-KNOWLEDGE-ANSWER", "category": "rehearsal" },
+  { "id": "N35-REHEARSAL-CITATION", "category": "rehearsal" },
+  { "id": "N35-REHEARSAL-SAFE-BOUNDARY", "category": "rehearsal" },
+  { "id": "N35-PRODUCTION-READINESS-REJECT", "category": "production" },
+  { "id": "N35-PRODUCTION-NO-DB-WRITE", "category": "production" },
+  { "id": "N35-PRODUCTION-NO-LISTEN", "category": "production" },
+  { "id": "N35-OUTPUT-REDACTION", "category": "redaction" },
+  { "id": "N35-RESOURCE-CLEANUP", "category": "cleanup" }
+]
