@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "n34.v1",
+  "evidenceType": "synthetic_rehearsal_final_freeze",
+  "nodeOrder": ["N29", "N30", "N31", "N32", "N33", "N33-R1"],
+  "expectedNodeCount": 6,
+  "items": [
+    {
+      "nodeId": "N29",
+      "evidenceKind": "pending_template",
+      "acceptanceStatus": "ACCEPTED",
+      "evalCount": 15,
+      "rehearsalRuns": 0,
+      "evidenceDigest": "20b0c1837849b2af54bda44b135353898303294ad27fb4c10cf6c8f1fe78adec"
+    },
+    {
+      "nodeId": "N30",
+      "evidenceKind": "synthetic_example",
+      "acceptanceStatus": "ACCEPTED",
+      "evalCount": 14,
+      "rehearsalRuns": 0,
+      "evidenceDigest": "cb188947c25743f86ddb9cfe77d077cde5f12670a1d34904f04092cdb76c265a"
+    },
+    {
+      "nodeId": "N31",
+      "evidenceKind": "consistency_regression",
+      "acceptanceStatus": "ACCEPTED",
+      "evalCount": 14,
+      "rehearsalRuns": 0,
+      "evidenceDigest": "793ea35bcd57fcea015457cbc7c3a38ca9a8826080bcf9406da4e4328872032b"
+    },
+    {
+      "nodeId": "N32",
+      "evidenceKind": "boundary_regression",
+      "acceptanceStatus": "ACCEPTED",
+      "evalCount": 12,
+      "rehearsalRuns": 0,
+      "evidenceDigest": "c929e2c661857eb247f90766a1331001b564ec56fe79c82cd2d73cc1e381b180"
+    },
+    {
+      "nodeId": "N33",
+      "evidenceKind": "evidence_seal",
+      "acceptanceStatus": "ACCEPTED",
+      "evalCount": 16,
+      "rehearsalRuns": 0,
+      "evidenceDigest": "bfd1e717d3b6d7c637d8adf6ae21b03c9b4988a195ae5ce139aa8d346f3bc21f"
+    },
+    {
+      "nodeId": "N33-R1",
+      "evidenceKind": "same_schema_rehearsal_isolation",
+      "acceptanceStatus": "ACCEPTED",
+      "evalCount": 0,
+      "rehearsalRuns": 3,
+      "evidenceDigest": "1200c8bdb97f71f7f9f199ef16cfbb277658b1120eb378852d636dafc5521454"
+    }
+  ],
+  "readiness": {
+    "local_eval": "LOCAL_EVAL_READY",
+    "rehearsal": "REHEARSAL_READY",
+    "production": "NOT_READY"
+  },
+  "productionBlockers": [
+    "BUSINESS_NOT_PRODUCTION_READY",
+    "KNOWLEDGE_SOURCE_NOT_APPROVED",
+    "SYNTHETIC_NOT_PRODUCTION",
+    "STAFF_IDENTITY_NOT_CONFIGURED",
+    "AGENT_PROVIDER_NOT_CONFIGURED",
+    "DEPLOYMENT_TARGET_NOT_CONFIGURED"
+  ],
+  "productionFreeze": {
+    "status": "FROZEN",
+    "authorization": "NOT_GRANTED",
+    "realInputs": "NOT_AVAILABLE"
+  },
+  "syntheticOnly": true,
+  "productionIntegration": false,
+  "manifestDigest": "15c1fb5d8cb26c6775afe90969c778d5e593a99c96bd37234440c194ee8e3615"
+}
