@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { KnowledgeService } from '../../apps/api/dist/modules/knowledge/knowledge.service.js';
@@ -72,10 +73,62 @@ if (!externalSchema) {
 }
 const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
 const knowledge = new KnowledgeService(prisma);
+const ownedConversationIds = new Set();
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
+
+async function captureBusinessSnapshot(client) {
+  const [conversations, handoffs, auditEvents, messages, messageFeedbacks, operatorReplies, internalNotes, conversationTags] = await Promise.all([
+    client.conversation.findMany({ select: { id: true, status: true, updatedAt: true }, orderBy: { id: 'asc' } }),
+    client.handoffRequest.findMany({ select: { id: true, conversationId: true, status: true, claimedBy: true, claimedAt: true, closedAt: true, closeReason: true, resolutionCode: true, updatedAt: true }, orderBy: { id: 'asc' } }),
+    client.auditEvent.findMany({ select: { id: true, conversationId: true, handoffRequestId: true, actorType: true, action: true, outcome: true }, orderBy: { id: 'asc' } }),
+    client.message.findMany({ select: { id: true, conversationId: true, role: true, responseType: true, agentMode: true, senderType: true }, orderBy: { id: 'asc' } }),
+    client.messageFeedback.findMany({ select: { id: true, conversationId: true, messageId: true, value: true }, orderBy: { id: 'asc' } }),
+    client.operatorReply.findMany({ select: { id: true, handoffRequestId: true, messageId: true, operatorId: true }, orderBy: { id: 'asc' } }),
+    client.internalNote.findMany({ select: { id: true, conversationId: true, handoffRequestId: true, operatorId: true }, orderBy: { id: 'asc' } }),
+    client.conversationTag.findMany({ select: { id: true, conversationId: true, handoffRequestId: true, tag: true, operatorId: true, active: true, removedAt: true }, orderBy: { id: 'asc' } }),
+  ]);
+  const projection = { conversations, handoffs, auditEvents, messages, messageFeedbacks, operatorReplies, internalNotes, conversationTags };
+  return {
+    counts: {
+      conversations: conversations.length,
+      handoffs: handoffs.length,
+      auditEvents: auditEvents.length,
+      messages: messages.length,
+      messageFeedbacks: messageFeedbacks.length,
+      operatorReplies: operatorReplies.length,
+      internalNotes: internalNotes.length,
+      conversationTags: conversationTags.length,
+    },
+    relationDigest: createHash('sha256').update(JSON.stringify(projection), 'utf8').digest('hex').slice(0, 12),
+  };
+}
+
+async function cleanupOwnedBusinessData(client) {
+  const conversationIds = [...ownedConversationIds];
+  if (conversationIds.length === 0) return;
+  await client.$transaction(async (tx) => {
+    await tx.messageFeedback.deleteMany({ where: { conversationId: { in: conversationIds } } });
+    await tx.operatorReply.deleteMany({ where: { handoffRequest: { conversationId: { in: conversationIds } } } });
+    await tx.internalNote.deleteMany({ where: { conversationId: { in: conversationIds } } });
+    await tx.conversationTag.deleteMany({ where: { conversationId: { in: conversationIds } } });
+    await tx.auditEvent.deleteMany({
+      where: {
+        OR: [
+          { conversationId: { in: conversationIds } },
+          { handoffRequest: { conversationId: { in: conversationIds } } },
+        ],
+      },
+    });
+    await tx.message.deleteMany({ where: { conversationId: { in: conversationIds } } });
+    await tx.handoffRequest.deleteMany({ where: { conversationId: { in: conversationIds } } });
+    await tx.conversation.deleteMany({ where: { id: { in: conversationIds } } });
+  });
+}
+
+const baselineBusinessSnapshot = await captureBusinessSnapshot(prisma);
 
 async function sleep(milliseconds) {
   await new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -190,6 +243,7 @@ try {
   assert(created.response.status === 201, `conversation creation returned HTTP ${created.response.status}`);
   const { conversationId, accessToken } = created.body;
   assert(conversationId && accessToken, 'conversation creation did not return credentials');
+  ownedConversationIds.add(conversationId);
 
   const sent = await requestJson(`/api/v1/conversations/${conversationId}/messages`, {
     method: 'POST',
@@ -423,6 +477,8 @@ try {
   await assertRuntimeHealth();
 
   const restartConversation = await requestJson('/api/v1/conversations', { method: 'POST' });
+  assert(restartConversation.response.status === 201 && restartConversation.body.conversationId && restartConversation.body.accessToken, 'restart conversation creation failed');
+  ownedConversationIds.add(restartConversation.body.conversationId);
   const afterRestart = await requestJson(`/api/v1/conversations/${restartConversation.body.conversationId}/messages`, {
     method: 'POST',
     headers: { authorization: `Bearer ${restartConversation.body.accessToken}`, 'content-type': 'application/json' },
@@ -439,6 +495,8 @@ try {
   await waitForHealth();
   await assertRuntimeHealth();
   const fallback = await requestJson('/api/v1/conversations', { method: 'POST' });
+  assert(fallback.response.status === 201 && fallback.body.conversationId && fallback.body.accessToken, 'fallback conversation creation failed');
+  ownedConversationIds.add(fallback.body.conversationId);
   const fallbackMessage = await requestJson(`/api/v1/conversations/${fallback.body.conversationId}/messages`, {
     method: 'POST',
     headers: { authorization: `Bearer ${fallback.body.accessToken}`, 'content-type': 'application/json' },
@@ -451,6 +509,11 @@ try {
   console.log('production API smoke passed: published answer/citation, unknown refusal, injection block, idempotent handoff, suppression, human reply, restart, no-published fallback, invalid credentials');
 } finally {
   for (const child of childProcesses) await stopApi(child);
+  const beforeOwnedDataCleanup = await captureBusinessSnapshot(prisma);
+  await cleanupOwnedBusinessData(prisma);
+  const afterOwnedDataCleanup = await captureBusinessSnapshot(prisma);
+  assert(JSON.stringify(baselineBusinessSnapshot) === JSON.stringify(afterOwnedDataCleanup), 'API smoke business state was not restored');
+  assert(beforeOwnedDataCleanup.counts.conversations >= baselineBusinessSnapshot.counts.conversations, 'API smoke cleanup baseline is invalid');
   if (!externalSchema) await prisma.knowledgeDocument.deleteMany({ where: { sourceId: smokeSourceId } });
   await prisma.$disconnect();
   if (!externalSchema) {

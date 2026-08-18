@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "n33.v1",
+  "evidenceType": "synthetic_rehearsal_evidence_seal",
+  "nodeOrder": ["N29", "N30", "N31", "N32"],
+  "expectedNodeCount": 4,
+  "items": [
+    { "nodeId": "N29", "acceptanceStatus": "accepted", "evaluationCount": 15, "securityStatus": "synthetic_only" },
+    { "nodeId": "N30", "acceptanceStatus": "accepted", "evaluationCount": 14, "securityStatus": "synthetic_only" },
+    { "nodeId": "N31", "acceptanceStatus": "accepted", "evaluationCount": 14, "securityStatus": "synthetic_only" },
+    { "nodeId": "N32", "acceptanceStatus": "accepted", "evaluationCount": 12, "securityStatus": "synthetic_only" }
+  ],
+  "readiness": {
+    "local_eval": "LOCAL_EVAL_READY",
+    "rehearsal": "REHEARSAL_READY",
+    "production": "NOT_READY"
+  },
+  "productionBlockers": [
+    "BUSINESS_NOT_PRODUCTION_READY",
+    "KNOWLEDGE_SOURCE_NOT_APPROVED",
+    "SYNTHETIC_NOT_PRODUCTION",
+    "STAFF_IDENTITY_NOT_CONFIGURED",
+    "AGENT_PROVIDER_NOT_CONFIGURED",
+    "DEPLOYMENT_TARGET_NOT_CONFIGURED"
+  ],
+  "syntheticOnly": true,
+  "productionIntegration": false,
+  "manifestDigest": "f4e352361665b9438473f3f9bad8472d82d26ea3e47e9c8c831b4e1cc3d77423"
+}

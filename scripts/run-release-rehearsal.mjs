@@ -370,6 +370,12 @@ if (!inputDatabaseUrl) {
     };
     await runStage(process.execPath, ['tests/smoke/api-production.mjs'], harnessEnvironment, 180_000, 'test_harness_api_smoke');
 
+    const afterApiSmokePrisma = new PrismaClient({ datasources: { db: { url: rehearsalDatabaseUrl } } });
+    const afterApiSmoke = await captureSummary(afterApiSmokePrisma);
+    await afterApiSmokePrisma.$disconnect();
+    assertSummaryUnchanged(beforeHarness, afterApiSmoke);
+    emit('stage_completed', { stage: 'api_smoke_cleanup', status: 'passed', relationDigest: afterApiSmoke.relationDigest });
+
     const e2eEnvironment = {
       ...process.env,
       DATABASE_URL: inputDatabaseUrl,
