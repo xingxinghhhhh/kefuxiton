@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "n38.freeze-determinism.v1",
+  "baselineCommit": "2b8a473",
+  "cases": [
+    { "id": "N38-BASELINE-COMMIT", "category": "baseline" },
+    { "id": "N38-N36-CASE-COUNT", "category": "n36-regression" },
+    { "id": "N38-N36-CASE-ALLOWLIST", "category": "n36-regression" },
+    { "id": "N38-FIRST-RUN", "category": "determinism" },
+    { "id": "N38-SECOND-RUN", "category": "determinism" },
+    { "id": "N38-SUMMARY-DETERMINISM", "category": "determinism" },
+    { "id": "N38-FILE-BOUNDARY", "category": "boundary" },
+    { "id": "N38-CLEANUP", "category": "cleanup" },
+    { "id": "N38-OUTPUT-REDACTION", "category": "boundary" }
+  ]
+}

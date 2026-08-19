@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "n37.freeze-regression.v1",
+  "baselineCommit": "2b8a473",
+  "baselineFiles": [
+    {
+      "path": "tests/evals/n34-freeze-manifest.json",
+      "sha256": "9d4ba37a620f636ae80dfc89ff27bd2e2508c1f3c5585515c768982be6a3e4eb"
+    },
+    {
+      "path": "tests/evals/n35-synthetic-knowledge-modes.json",
+      "sha256": "aaf8de5444c0f29b933676322e70e64b24680e5ef96b77f3aa79a7309112d46a"
+    },
+    {
+      "path": "tests/evals/n36-freeze-maintenance.json",
+      "sha256": "7fe8e7d0337b1818286bbc10e137f72f1827996bf0052a58584afe936eafa688"
+    }
+  ],
+  "cases": [
+    { "id": "N37-N34-EXACT-KEYS", "category": "n34-contract" },
+    { "id": "N37-N34-NODE-ORDER", "category": "n34-contract" },
+    { "id": "N37-N34-DIGEST", "category": "n34-contract" },
+    { "id": "N37-N34-FREEZE", "category": "n34-contract" },
+    { "id": "N37-N35-CASE-COUNT", "category": "n35-regression" },
+    { "id": "N37-N35-CASE-ALLOWLIST", "category": "n35-regression" },
+    { "id": "N37-N35-OUTPUT-CONTRACT", "category": "n35-regression" },
+    { "id": "N37-N36-CASE-COUNT", "category": "n36-regression" },
+    { "id": "N37-N36-CASE-ALLOWLIST", "category": "n36-regression" },
+    { "id": "N37-N36-OUTPUT-CONTRACT", "category": "n36-regression" },
+    { "id": "N37-READINESS-LOCAL-EVAL", "category": "readiness" },
+    { "id": "N37-READINESS-REHEARSAL", "category": "readiness" },
+    { "id": "N37-READINESS-PRODUCTION", "category": "readiness" },
+    { "id": "N37-FILE-BOUNDARY", "category": "boundary" },
+    { "id": "N37-OUTPUT-REDACTION", "category": "boundary" }
+  ]
+}
