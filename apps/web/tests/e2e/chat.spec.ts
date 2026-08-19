@@ -4,6 +4,9 @@ const apiBase = process.env.E2E_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
 test('completes the safe mock chat flow', async ({ page }) => {
   await page.goto('/chat');
+  await expect(page.getByRole('heading', { name: '安全会话闭环' })).toBeVisible();
+  await expect(page.getByText('安全边界')).toBeVisible();
+  await expect(page.getByRole('link', { name: /客服工作台/ }).first()).toBeVisible();
   const composer = page.locator('#message');
   const send = page.locator('form.composer button[type="submit"]');
 
@@ -20,6 +23,17 @@ test('completes the safe mock chat flow', async ({ page }) => {
   await expect(page.getByRole('status').filter({ hasText: '反馈已记录' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button', { name: '有帮助' }).last()).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('customer and staff surfaces remain role-scoped', async ({ page }) => {
+  await page.goto('/chat');
+  await expect(page.locator('#message')).toBeVisible();
+  await expect(page.locator('#staff-token')).toHaveCount(0);
+  await page.goto('/staff/handoffs');
+  await expect(page.getByRole('heading', { name: '人工接管工作台' })).toBeVisible();
+  await expect(page.getByText('权限边界')).toBeVisible();
+  await expect(page.locator('#staff-token')).toBeVisible();
+  await expect(page.locator('#message')).toHaveCount(0);
 });
 
 test('customer handoff status disables automatic replies', async ({ page, request }) => {

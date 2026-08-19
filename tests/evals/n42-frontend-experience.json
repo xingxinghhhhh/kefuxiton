@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "n42.v1",
+  "nodeId": "N42",
+  "title": "非生产客服工作台体验增强",
+  "syntheticOnly": true,
+  "productionIntegration": false,
+  "cases": [
+    { "id": "N42-CUSTOMER-MESSAGE", "area": "customer", "assertion": "客户对话保留发送、消息状态和安全演示边界。" },
+    { "id": "N42-CUSTOMER-CITATION", "area": "customer", "assertion": "服务端来源展示标题、版本和定位信息。" },
+    { "id": "N42-SAFE-REFUSAL", "area": "customer", "assertion": "safe_unavailable 以可解释的保守拒答状态展示。" },
+    { "id": "N42-HANDOFF-PENDING", "area": "customer", "assertion": "转人工等待期间明确状态并停用自动回复输入。" },
+    { "id": "N42-FEEDBACK-STATE", "area": "customer", "assertion": "反馈按钮支持记录、重放和失败提示。" },
+    { "id": "N42-STAFF-QUEUE-DETAIL", "area": "staff", "assertion": "Staff 工作台展示队列、请求详情和人工回复入口。" },
+    { "id": "N42-TIMELINE-REDACTION", "area": "staff", "assertion": "内部上下文和审计时间线只展示服务端脱敏投影。" },
+    { "id": "N42-ROLE-ISOLATION", "area": "security", "assertion": "客户与 Staff 页面入口、凭据和内部上下文保持隔离，生产身份默认拒绝。" }
+  ]
+}
