@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "n39.v1",
+  "evidenceType": "freeze_chain_final_seal",
+  "nodeOrder": ["N34", "N35", "N36", "N37", "N38"],
+  "expectedNodeCount": 5,
+  "items": [
+    { "nodeId": "N34", "evidenceKind": "freeze_manifest", "acceptanceStatus": "ACCEPTED", "evalCount": 18, "repeatRuns": 0, "evidenceDigest": "710708584e0e2680f005ecb8f6e4cf20d14bfc5f70893103f7ec5a118f8c6178" },
+    { "nodeId": "N35", "evidenceKind": "synthetic_state_regression", "acceptanceStatus": "ACCEPTED", "evalCount": 18, "repeatRuns": 0, "evidenceDigest": "c7509c367d5ab22beb991ce99cc68784b8bfeeba08dd3289b23d6fed14c773be" },
+    { "nodeId": "N36", "evidenceKind": "freeze_maintenance_regression", "acceptanceStatus": "ACCEPTED", "evalCount": 15, "repeatRuns": 0, "evidenceDigest": "0fac43f0b91f8947f4a68abf84ab3ecf8e86dcbeb3de9006db758406a79a68b2" },
+    { "nodeId": "N37", "evidenceKind": "baseline_regression", "acceptanceStatus": "ACCEPTED", "evalCount": 15, "repeatRuns": 1, "evidenceDigest": "c2288fff04f8a18532cd58a10b11ac3a69d488f97d6e22b6932cbd877c245059" },
+    { "nodeId": "N38", "evidenceKind": "determinism_regression", "acceptanceStatus": "ACCEPTED", "evalCount": 9, "repeatRuns": 2, "evidenceDigest": "24022c0c370d7accb52c243889c2a382b9b1a33d7d2e8201704ea52225dd7526" }
+  ],
+  "readiness": { "local_eval": "LOCAL_EVAL_READY", "rehearsal": "REHEARSAL_READY", "production": "NOT_READY" },
+  "productionBlockers": [
+    "BUSINESS_NOT_PRODUCTION_READY",
+    "KNOWLEDGE_SOURCE_NOT_APPROVED",
+    "SYNTHETIC_NOT_PRODUCTION",
+    "STAFF_IDENTITY_NOT_CONFIGURED",
+    "AGENT_PROVIDER_NOT_CONFIGURED",
+    "DEPLOYMENT_TARGET_NOT_CONFIGURED"
+  ],
+  "productionFreeze": { "status": "FROZEN", "authorization": "NOT_GRANTED", "realInputs": "NOT_AVAILABLE" },
+  "syntheticOnly": true,
+  "productionIntegration": false,
+  "manifestDigest": "33e3c7335dc1c08d17ddf9ad1cb8b745bbf35dda56d68f846ce04c49802afc51"
+}
